@@ -18,6 +18,16 @@ STRIDE = 6              # a new episode starts every 6 hours of history
 POP = 48                # variants alive per round
 ELITE = 10              # the best are kept unchanged and tested again
 KEEP_GENS = 36          # rounds remembered for the dashboard
+LAND_N = 12             # the learned map is LAND_N x LAND_N cells
+LAND_X = (0.002, 0.08)  # first bid: how far below the price (log scale)
+LAND_Y = (0.005, 0.05)  # take-profit: how far above the fill (log scale)
+
+
+def land_cell(first: float, tp: float) -> int:
+    """Which cell of the learned map a variant's settings fall in."""
+    def ix(v, lo, hi):
+        return int(_clamp((math.log(_clamp(v, lo, hi)) - math.log(lo)) / (math.log(hi) - math.log(lo)) * LAND_N, 0, LAND_N - 1))
+    return ix(tp, *LAND_Y) * LAND_N + ix(first, *LAND_X)
 
 
 def _clamp(v, a, b):
@@ -144,6 +154,9 @@ class Lab:
         self.pop: List[dict] = []           # [{"id", "parent", "gene", "age", **score}]
         self.genes = {}                     # id -> gene, for every variant still shown on the dashboard
         self.gens: List[dict] = []
+        cells = LAND_N * LAND_N                 # everything the lab has learned so far, by region of settings
+        self.land = {"n": [0] * cells, "tr": [0.0] * cells, "te": [0.0] * cells}
+        self.tested = 0
         self.gen, self._next_id = 0, 1
         self.eps: List[dict] = []
         self._eps_key = None
@@ -199,6 +212,14 @@ class Lab:
                 new.append({"id": self._id(), "parent": 0, "gene": random_gene(rng), "age": 0})
         for v in new:
             v.update(score(v["gene"], self.eps, self.fees))
+            if v["age"] == 0:                                       # a variant tried for the first time: remember what it showed
+                levels, tp, _, _ = plan(v["gene"])
+                c = land_cell(levels[0], tp)
+                v["cell"] = c
+                self.land["n"][c] += 1
+                self.land["tr"][c] += v["train"]
+                self.land["te"][c] += v["test"]
+                self.tested += 1
         live = score(self.live_gene, self.eps, self.fees)
         with self.lock:
             self.pop, self.gen, self.live_score = new, self.gen + 1, live
@@ -218,13 +239,23 @@ class Lab:
         return self._next_id - 1
 
     # ---- for the dashboard --------------------------------------------------------
-    def view(self) -> dict:
+    def view(self, since: int = -1) -> dict:
+        if since == self.gen and self.gen:                          # nothing new since the dashboard last asked
+            return {"state": self.state, "detail": self.detail_text, "gen": self.gen, "unchanged": True}
         with self.lock:
             best = max(self.pop, key=lambda v: v["fit"]) if self.pop else None
             n_tr = sum(e["split"] == "train" for e in self.eps)
             race = {"t0": [e["t0"] for e in self.eps], "split": [e["split"] for e in self.eps],
                     "v": [[v["id"], v["each"]] for v in self.pop], "live": self.live_score["each"] if self.live_score else []}
-            return {"state": self.state, "detail": self.detail_text, "gen": self.gen, "gens": self.gens, "race": race,
+            n = self.land["n"]
+            land = {"nx": LAND_N, "ny": LAND_N, "x": LAND_X, "y": LAND_Y, "n": n, "tested": self.tested,
+                    "tr": [round(a / c, 3) if c else None for a, c in zip(self.land["tr"], n)],
+                    "te": [round(a / c, 3) if c else None for a, c in zip(self.land["te"], n)],
+                    "pop": [[v["id"], round(plan(v["gene"])[0][0], 4), round(plan(v["gene"])[1], 4), round(v["test"], 3),
+                             round(v["train"], 3), v["age"]] for v in self.pop],
+                    "live": [self.live_gene["levels"][0], self.live_gene["tp"],
+                             round(self.live_score["test"], 3) if self.live_score else 0.0]}
+            return {"state": self.state, "detail": self.detail_text, "gen": self.gen, "gens": self.gens, "race": race, "land": land,
                     "best": best["id"] if best else None, "live": {k: x for k, x in (self.live_score or {}).items() if k != "each"} or None,
                     "episodes": len(self.eps), "train": n_tr, "test": len(self.eps) - n_tr,
                     "hours": EP_HOURS, "pop": POP, "elite": ELITE}

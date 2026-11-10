@@ -103,8 +103,10 @@ class Dash:
                     return self._send(200, dash.state())
                 if self.path == "/api/forecast":
                     return self._send(200, dash.forecast())
-                if self.path == "/api/lab":
-                    return self._send(200, dash.lab.view() if dash.lab else {"state": "off", "gens": []})
+                if self.path == "/api/lab" or self.path.startswith("/api/lab?since="):
+                    since = self.path.split("=", 1)[1] if "=" in self.path else "-1"
+                    since = int(since) if since.lstrip("-").isdigit() else -1
+                    return self._send(200, dash.lab.view(since) if dash.lab else {"state": "off", "gens": []})
                 if self.path.startswith("/api/lab?v="):
                     d = dash.lab.variant(self.path.split("=", 1)[1][:12]) if dash.lab else None
                     return self._send(200 if d else 404, d or {"error": "that variant is no longer kept"})
