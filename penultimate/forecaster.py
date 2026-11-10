@@ -15,6 +15,12 @@ import time
 from pathlib import Path
 
 
+# The exact published versions of the model weights this was tested with. Pinning them means a later
+# change to those repositories cannot silently change what runs here.
+PINS = {"NeoQuasar/Kronos-small": "901c26c1332695a2a8f243eb2f37243a37bea320",
+        "NeoQuasar/Kronos-Tokenizer-base": "0e0117387f39004a9016484a186a908917e22426"}
+
+
 def write_json(path: Path, obj: dict) -> None:
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_text(json.dumps(obj))
@@ -76,8 +82,8 @@ def main() -> None:
         import torch
         from .vendor.kronos import Kronos, KronosPredictor, KronosTokenizer
         torch.set_num_threads(max(1, min(4, (os.cpu_count() or 2) // 2)))
-        tokenizer = KronosTokenizer.from_pretrained(args.tokenizer)
-        model = Kronos.from_pretrained(args.model)
+        tokenizer = KronosTokenizer.from_pretrained(args.tokenizer, revision=PINS.get(args.tokenizer))
+        model = Kronos.from_pretrained(args.model, revision=PINS.get(args.model))
         tokenizer.eval()
         model.eval()
         predictor = KronosPredictor(model, tokenizer, device="cpu", max_context=512)

@@ -56,8 +56,16 @@ def save_keys(api_key: str, secret: str, password: str = "") -> None:
     if not api_key or not secret:
         raise ValueError("could not find both a key name and a secret in what was pasted")
     KEYS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    KEYS_FILE.write_text(json.dumps({"apiKey": api_key, "secret": secret, "password": password}))
-    os.chmod(KEYS_FILE, 0o600)             # readable by you only
+    try:
+        os.chmod(KEYS_FILE.parent, 0o700)                  # the data folder is yours alone
+    except OSError:
+        pass
+    tmp = KEYS_FILE.with_name(KEYS_FILE.name + ".new")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)     # created readable by you only, never wider
+    with os.fdopen(fd, "w") as f:
+        f.write(json.dumps({"apiKey": api_key, "secret": secret, "password": password}))
+    os.chmod(tmp, 0o600)
+    os.replace(tmp, KEYS_FILE)
 
 
 def make_exchange(venue: str, keys: Optional[dict] = None):

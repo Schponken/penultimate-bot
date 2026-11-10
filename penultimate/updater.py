@@ -14,6 +14,7 @@ import io
 import json
 import os
 import py_compile
+import re
 import shutil
 import subprocess
 import sys
@@ -32,6 +33,8 @@ class Updater:
     def __init__(self, cfg: dict, root: Path, data_dir: Path):
         u = cfg.get("update") or {}
         self.repo = str(u.get("repo") or "")
+        if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", self.repo):
+            self.repo = ""                  # only a plain owner/name is accepted
         self.branch = str(u.get("branch") or "main")
         self.auto = str(u.get("auto") or "practice")
         self.every = max(120, int(u.get("check_seconds") or 600))
@@ -85,6 +88,8 @@ class Updater:
             return ""
 
     def _get(self, url: str) -> bytes:
+        if not url.startswith("https://api.github.com/repos/"):
+            raise ValueError("updates are only ever fetched from GitHub")
         req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json",
                                                    "User-Agent": "penultimate-bot"})
         token = self._read("github-token")          # only needed while the repository is private
@@ -156,7 +161,15 @@ class Updater:
                 parts = Path(m.name).parts
                 if m.name.startswith("/") or ".." in parts or not (m.isfile() or m.isdir()):
                     raise ValueError(f"unsafe entry in the download: {m.name}")
-            tar.extractall(tmp, filter="data") if hasattr(tarfile, "data_filter") else tar.extractall(tmp)
+                if m.isdir():
+                    continue
+                dest = (tmp / m.name).resolve()
+                if tmp.resolve() not in dest.parents:
+                    raise ValueError(f"unsafe entry in the download: {m.name}")
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                dest.write_bytes(tar.extractfile(m).read())      # written by hand: plain files only, never links or devices
+                if m.mode & 0o111:
+                    dest.chmod(0o755)
         kids = [p for p in tmp.iterdir()]
         src = kids[0] if len(kids) == 1 and kids[0].is_dir() and not (tmp / "penultimate").exists() else tmp
         for need in NEED:

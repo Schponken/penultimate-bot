@@ -55,3 +55,26 @@ def test_another_sites_name_is_refused_and_pages_cannot_be_framed():
     finally:
         d.httpd.shutdown()
         d.httpd.server_close()
+
+
+def test_saved_keys_are_readable_by_the_owner_only(tmp_path, monkeypatch):
+    import os
+    import stat
+    from penultimate import broker_live
+    monkeypatch.setattr(broker_live, "KEYS_FILE", tmp_path / "data" / "keys.json")
+    pem = "-----BEGIN EC PRIVATE KEY-----\n" + "A" * 64 + "\n-----END EC PRIVATE KEY-----\n"
+    old = os.umask(0)                                    # even with the most permissive default
+    try:
+        broker_live.save_keys(json.dumps({"name": "organizations/x/apiKeys/y", "privateKey": pem}), "")
+    finally:
+        os.umask(old)
+    mode = stat.S_IMODE(os.stat(tmp_path / "data" / "keys.json").st_mode)
+    assert mode == 0o600 and stat.S_IMODE(os.stat(tmp_path / "data").st_mode) == 0o700
+    assert broker_live.load_keys()["apiKey"] == "organizations/x/apiKeys/y"
+
+
+def test_the_updater_only_accepts_a_plain_repository_name(tmp_path):
+    from penultimate.updater import Updater
+    assert Updater({"update": {"repo": "Owner/repo"}}, tmp_path, tmp_path).enabled
+    for bad in ("Owner/repo/../../x", "https://evil.example/x", "Owner repo", "a/b?c=d"):
+        assert not Updater({"update": {"repo": bad}}, tmp_path, tmp_path).enabled

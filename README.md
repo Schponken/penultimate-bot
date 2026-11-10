@@ -46,7 +46,7 @@ The bot's whole budget is `max_gross_exposure_usd` in `limits.yaml` ($500). It n
 | `penultimate/lab.py` | Strategy lab, test only. Every few seconds it tests 48 variants of the resting-bid strategy on real past prices, keeps the best 10, mutates them and tests again. It never trades and never changes the live settings. The dashboard shows the family tree, every variant's running result, and each individual trade path. The number that matters is the result on history the lab never trained on. |
 | `penultimate/updater.py` | On a server: checks the repository for new versions. On fake money they install by themselves; with real money they wait for your click. Never touches `config.yaml`, `limits.yaml` or `data/`. |
 | `deploy/server-setup.sh`, `deploy/install-server.sh` | What the server runs on first boot: install, start on boot, private access, firewall. |
-| `tests/` | 53 automatic checks of the money-protecting parts. |
+| `tests/` | 59 automatic checks of the money-protecting parts. |
 
 ## Honest status
 
@@ -55,3 +55,11 @@ The bot's whole budget is `max_gross_exposure_usd` in `limits.yaml` ($500). It n
 - **The two starter strategies are plumbing, not a proven edge.** On the practice market with a $500 balance at Coinbase-level fees they lost money in 8 of 10 two-week runs (about $19, or 4%, on average). Treat real-price practice results as the evidence that matters.
 - **The funding trade is switched off in live mode** until the futures leg is verified on your exchange (`allow_live` in `config.yaml`).
 - **Speed:** this version reacts in fractions of a second, not microseconds. That suits the slower strategies; pure speed races are not what it is for.
+
+## Security
+
+- The dashboard listens on this computer only and answers only to its own address (`127.0.0.1`, `localhost`, a plain IP, `penultimate` or a Tailscale name). A request addressed to any other website name is refused, other pages cannot embed it, and every command needs the page's session token.
+- The exchange key is stored in `data/keys.json`, created readable by you only. It is never shown by the dashboard or written to logs. Give it trading permission only; the bot contains no code that withdraws.
+- Updates on a server come only from this GitHub repository, are unpacked file by file (plain files only), must compile and import before they replace anything, and wait for a click once real money is on. Whoever can push to the repository can change what the server runs, so protect that GitHub account with two-factor sign-in.
+- The forecast model's weights are pinned to exact published versions.
+- Checked with `bandit` (code) and `pip-audit` (dependencies); `tests/test_dashboard_security.py` covers the points above.
