@@ -31,6 +31,7 @@ class Dash:
         self.token = secrets.token_urlsafe(16)
         self.engine = None
         self.updater = None
+        self.lab = None
         self.crash = ""
         self.httpd = None
 
@@ -70,6 +71,11 @@ class Dash:
                     return self._send(200, dash.state())
                 if self.path == "/api/forecast":
                     return self._send(200, dash.forecast())
+                if self.path == "/api/lab":
+                    return self._send(200, dash.lab.view() if dash.lab else {"state": "off", "gens": []})
+                if self.path.startswith("/api/lab?v="):
+                    d = dash.lab.variant(self.path.split("=", 1)[1][:12]) if dash.lab else None
+                    return self._send(200 if d else 404, d or {"error": "that variant is no longer kept"})
                 self._send(404, {"error": "not found"})
 
             def do_POST(self):

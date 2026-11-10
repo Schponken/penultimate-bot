@@ -13,6 +13,7 @@ from .config import ROOT, load_config, load_limits
 from .dashboard import Dash
 from .engine import Engine
 from .forecast import ForecastHub
+from .lab import Lab
 from .updater import Updater
 
 
@@ -34,7 +35,7 @@ def main() -> None:
             webbrowser.open(url)
 
     backoff = 1.0
-    hub, hub_key = None, None
+    hub, hub_key, lab = None, None, None
     (ROOT / "data").mkdir(exist_ok=True)
     upd = Updater(load_config(), ROOT, ROOT / "data")      # off unless config.yaml has an update section
     upd.start()
@@ -49,9 +50,15 @@ def main() -> None:
             if key != hub_key:                  # forecast plumbing follows the price source
                 if hub:
                     hub.stop()
+                if lab:
+                    lab.stop()
                 hub, hub_key = ForecastHub(cfg, ROOT / "data", ROOT), key
                 (ROOT / "data").mkdir(exist_ok=True)
                 hub.start()
+                lab = Lab(cfg, hub, load_limits())              # shadow-only strategy lab; never trades
+                lab.start()
+                if dash:
+                    dash.lab = lab
             eng = Engine(cfg, load_limits(), hub=hub)
             if dash:
                 dash.engine, dash.crash = eng, ""
@@ -59,6 +66,7 @@ def main() -> None:
             if eng.reexec:                      # updated files on disk: replace this process with a fresh one
                 eng.store.close()
                 hub.stop()
+                lab.stop()
                 upd.stop()
                 if dash and dash.httpd:
                     dash.httpd.server_close()

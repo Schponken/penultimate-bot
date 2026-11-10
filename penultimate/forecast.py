@@ -38,6 +38,7 @@ class ForecastHub:
         self.forecast: Optional[dict] = None
         self.observed: List[float] = []         # recent real hourly moves, shown until the model is up
         self.candles: List[list] = []           # recent hourly candles for the price chart
+        self.history: List[list] = []           # all hourly candles held, for the strategy lab
         self.candle_error = ""
         self._mtime = 0.0
         self._proc: Optional[subprocess.Popen] = None
@@ -82,6 +83,7 @@ class ForecastHub:
                         self._write("candles.json", {"symbol": self.symbol, "timeframe_s": TF_S,
                                                      "candles": candles, "written": time.time()})
                         self.candles = [c[:5] for c in candles[-96:]]
+                        self.history = candles
                         closes = [c[4] for c in candles[-49:]]
                         self.observed = [round(b / a - 1, 5) for a, b in zip(closes, closes[1:])]
                 except Exception as e:
