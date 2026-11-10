@@ -1,0 +1,7 @@
+Kronos: A Foundation Model for the Language of Financial Markets
+Source:  https://github.com/shiyu-coder/Kronos  (files model/kronos.py and model/module.py)
+Commit:  67b630e67f6a18c9e9be918d9b4337c960db1e9a  (2026-04-13)
+License: MIT (see LICENSE in this folder). Copyright (c) 2025 ShiYu.
+Change:  kronos.py imports its sibling module relatively ("from .module import *") instead of via sys.path.
+Weights are not included; they are downloaded from the Hugging Face Hub (NeoQuasar/Kronos-small and
+NeoQuasar/Kronos-Tokenizer-base, safetensors format) the first time the forecaster runs.

@@ -1,0 +1,23 @@
+#!/bin/bash
+TAILSCALE_KEY="PASTE_TAILSCALE_KEY_HERE"
+GITHUB_TOKEN=""
+# ^ Line 2: replace the words between the quotes with your Tailscale auth key.
+#   Line 3: leave empty if the GitHub repository is public. If it is private, put a read-only token between the quotes.
+#   Change nothing else.
+#
+# Penultimate server setup. Paste this whole text into the "Startup scripts" box when you create an
+# Ubuntu 24.04 server. On first boot the server downloads the bot from its GitHub repository, starts it in
+# practice mode (fake money), keeps it running 24/7 and up to date, and makes the dashboard reachable only
+# from your own devices at http://penultimate/   Progress is written to /var/log/penultimate-setup.log
+REPO="Schponken/penultimate-bot"
+exec >> /var/log/penultimate-setup.log 2>&1
+export DEBIAN_FRONTEND=noninteractive HOME=/root TAILSCALE_KEY GITHUB_TOKEN REPO
+for i in 1 2 3 4 5; do apt-get update -qq && apt-get install -y -qq curl ca-certificates tar && break; sleep 15; done
+AUTH=(); [ -n "$GITHUB_TOKEN" ] && AUTH=(-H "Authorization: Bearer $GITHUB_TOKEN")
+SHA="$(curl -fsSL --retry 5 "${AUTH[@]}" "https://api.github.com/repos/$REPO/commits/main" | grep -m1 '"sha"' | cut -d'"' -f4)"
+[ -n "$SHA" ] || { echo "FAILED: could not read the repository $REPO (if it is private, line 3 needs a token)"; exit 1; }
+rm -rf /root/penultimate-src && mkdir -p /root/penultimate-src
+curl -fsSL --retry 5 "${AUTH[@]}" "https://api.github.com/repos/$REPO/tarball/$SHA" | tar -xz --strip-components=1 -C /root/penultimate-src \
+  || { echo "FAILED: could not download the bot"; exit 1; }
+export SHA
+bash /root/penultimate-src/deploy/server-setup.sh

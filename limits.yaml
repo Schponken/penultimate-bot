@@ -1,0 +1,13 @@
+# HARD LIMITS. The bot can never change this file and never trades past these.
+# Everything inside the fence is fully automatic. Edit only by hand, then restart.
+# Sized for a $500 starting balance.
+
+max_order_usd: 100            # biggest single order
+max_position_usd: 300         # biggest position in any one market
+max_gross_exposure_usd: 500   # everything the bot has working, added up. This is its whole budget.
+max_leverage: 1.0             # no borrowing
+max_daily_loss_usd: 50        # hit this -> sell everything, stop, wait for you
+max_transfer_usd: 500         # biggest move between your own wallets on the exchange
+stale_feed_seconds: 15        # no prices for this long -> cancel orders, pause
+max_spread_bps: 60            # bid/ask gap wider than this -> cancel orders, pause
+cooldown_seconds: 300         # wait after any emergency action before adding risk

@@ -1,0 +1,9 @@
+data/
+.venv/
+.venv-forecast/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.zip
+keys.json
+.DS_Store

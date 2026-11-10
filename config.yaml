@@ -1,0 +1,55 @@
+# Penultimate settings. The dashboard changes mode for you; you rarely need this file.
+
+mode: paper          # paper = fake money | live = real orders on your exchange account
+feed: live           # sim = built-in practice market | live = real prices from the venue
+venue: coinbase      # coinbase (all US states) | kraken + krakenfutures (not NY/WA/ME)
+
+spot_symbol: BTC/USD
+perp_symbol: BTC/USD:USD     # perpetual future used for the hedge leg; blank to disable
+
+paper:
+  starting_cash: 500
+  taker_fee: 0.009           # fee when you take liquidity (0.9%, Coinbase entry tier; check your fee page)
+  maker_fee: 0.005           # fee when your resting order is hit (0.5%)
+  perp_taker_fee: 0.001      # fee on the futures leg (assumed; check your exchange's fee page)
+  perp_maker_fee: 0.0005
+  slippage_bps: 2            # price drift on market orders, in hundredths of a percent
+
+sim:
+  seed: 7
+  seconds_per_tick: 60       # simulated time each tick represents
+  real_delay: 0.05           # real seconds between ticks (0 = as fast as possible)
+  start_price: 75000
+
+regime:
+  window: 120                # ticks used to judge the market state
+  panic_vol: 0.0045          # per-tick volatility above this = panic
+  trend_z: 1.2               # trend strength above this = trending
+
+strategies:
+  deep_bids:
+    enabled: true
+    order_usd: 95 
+    levels: [0.03, 0.05, 0.08]   # resting buys this far below the market
+    recenter: 0.012              # follow the price up when it rises this much
+    settle_hours: 6              # after a fall, wait this long before moving the bids lower
+    take_profit: 0.02
+    stop_loss: 0.12              # exit if price falls this far below where the ladder was set (must be deeper than the last level)
+    max_hold_hours: 48
+  funding_carry:
+    enabled: true
+    notional_usd: 100            # per leg; never more than max_order_usd in limits.yaml
+    allow_live: false            # stays off with real money until the hedge leg is verified on your exchange
+    enter_rate: 0.0002           # funding per 8h that makes the hedge worth opening
+    exit_rate: 0.00003
+    max_breakeven_periods: 9     # skip if fees take longer than this (3 days) to earn back
+
+forecast:
+  enabled: true                # Kronos price-path model. Shadow mode: watched and scored, never trades.
+  model: NeoQuasar/Kronos-small
+  tokenizer: NeoQuasar/Kronos-Tokenizer-base
+  samples: 48                  # sampled futures per forecast
+  horizon_hours: 24
+
+dashboard:
+  port: 8787
