@@ -63,6 +63,9 @@ def test_every_part_feeds_the_next_and_the_dashboard_gets_what_it_reads(tmp_path
     land = v["land"]
     assert len(land["n"]) == LAND_N * LAND_N and sum(land["n"]) == land["tested"] >= 48
     assert all((t is None) == (n == 0) for t, n in zip(land["te"], land["n"]))
+    pr = v["progress"]
+    assert [r[0] for r in pr["hist"]] == [1, 2, 3] and pr["need"] == 30 and 0 <= pr["pos"] <= 3 and pr["top_live"] >= pr["live"]
+    assert all(len(r) == 6 and r[5] == sum(x[4] > 0 for x in g["v"]) for r, g in zip(pr["hist"], v["gens"]))     # "variants ahead" matches the round it describes
     assert lab.view(since=3) == {"state": "running", "detail": lab.detail_text, "gen": 3, "unchanged": True}
     d = json.loads(json.dumps(lab.variant(v["best"])))
     assert d["id"] == v["best"] and len(d["paths"]) == v["episodes"] and d["futures"] == []

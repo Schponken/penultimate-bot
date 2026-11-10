@@ -21,6 +21,8 @@ STRIDE = 6              # a new episode starts every 6 hours of history
 POP = 48                # variants alive per round
 ELITE = 10              # the best are kept unchanged and tested again
 KEEP_GENS = 36          # rounds remembered for the dashboard
+NEED_ROUNDS = 30        # how many rounds in a row a result must hold before the dashboard calls it progress
+KEEP_HIST = 360         # points of progress history kept (older ones are thinned, not dropped)
 LAND_N = 12             # the learned map is LAND_N x LAND_N cells
 LAND_X = (0.002, 0.08)  # first bid: how far below the price (log scale)
 LAND_Y = (0.005, 0.05)  # take-profit: how far above the fill (log scale)
@@ -160,6 +162,8 @@ class Lab:
         cells = LAND_N * LAND_N                 # everything the lab has learned so far, by region of settings
         self.land = {"n": [0] * cells, "tr": [0.0] * cells, "te": [0.0] * cells}
         self.tested = 0
+        self.hist: List[list] = []              # one line per round: [round, picks on unseen, picks on trained, champion on unseen, live on unseen, variants ahead on unseen]
+        self.runs = {"pos": 0, "live": 0, "top_pos": 0, "top_live": 0}      # rounds in a row the lab's picks made money / beat the live settings, on unseen history
         self.gen, self._next_id = 0, 1
         self.eps: List[dict] = []
         self._eps_key = None
@@ -187,6 +191,13 @@ class Lab:
             self.pop = [{"id": int(v["id"]), "parent": int(v["parent"]), "gene": v["gene"], "age": int(v["age"])} for v in pop]
             self.gens = list(s.get("gens") or [])[-KEEP_GENS:]
             self.genes = {int(k): g for k, g in (s.get("genes") or {}).items()}
+            self.hist = [list(r) for r in (s.get("hist") or []) if isinstance(r, list) and len(r) == 6][-KEEP_HIST:]
+            self.runs.update({k: int(v) for k, v in (s.get("runs") or {}).items() if k in self.runs})
+            if not self.hist:                                       # saved by an older version: rebuild what the kept rounds still show
+                for g in self.gens:
+                    top = sorted(g["v"], key=lambda r: -r[2])[:ELITE]
+                    self.hist.append([g["g"], round(sum(r[4] for r in top) / len(top), 3), round(sum(r[3] for r in top) / len(top), 3),
+                                      top[0][4], None, sum(r[4] > 0 for r in g["v"])])
             self._rescore = True
         except Exception:
             pass                                                    # no saved state, or one this version cannot read: start fresh
@@ -198,7 +209,7 @@ class Lab:
             tmp = self.file.with_name("lab.json.tmp")
             tmp.write_text(json.dumps({"v": 1, "gen": self.gen, "next": self._next_id, "tested": self.tested, "land": self.land,
                                        "pop": [{k: v[k] for k in ("id", "parent", "gene", "age")} for v in self.pop],
-                                       "gens": self.gens, "genes": self.genes}))
+                                       "gens": self.gens, "genes": self.genes, "hist": self.hist, "runs": self.runs}))
             os.replace(tmp, self.file)
         except OSError:
             pass
@@ -273,6 +284,18 @@ class Lab:
                 self.genes[v["id"]] = v["gene"]
             shown = {row[0] for g in self.gens for row in g["v"]}
             self.genes = {k: g for k, g in self.genes.items() if k in shown}
+            # progress: how the variants the lab would pick (the best 10 on the history it trains on) did on history it never saw
+            top = sorted(new, key=lambda v: -v["fit"])[:ELITE]
+            picks = sum(v["test"] for v in top) / len(top)
+            self.hist.append([self.gen, round(picks, 3), round(sum(v["train"] for v in top) / len(top), 3), round(top[0]["test"], 3),
+                              round(live["test"], 3), sum(v["test"] > 0 for v in new)])
+            if len(self.hist) > KEEP_HIST:                          # thin the older half so a long run still fits
+                half = len(self.hist) // 2
+                self.hist = self.hist[:half:2] + self.hist[half:]
+            r = self.runs
+            r["pos"] = r["pos"] + 1 if picks > 0 else 0
+            r["live"] = r["live"] + 1 if picks > live["test"] else 0
+            r["top_pos"], r["top_live"] = max(r["top_pos"], r["pos"]), max(r["top_live"], r["live"])
             self.state = "running"
             self.detail_text = f"round {self.gen}: {POP} variants on {len(self.eps)} slices of real history"
         self._save()
@@ -300,6 +323,7 @@ class Lab:
                     "live": [self.live_gene["levels"][0], self.live_gene["tp"],
                              round(self.live_score["test"], 3) if self.live_score else 0.0]}
             return {"state": self.state, "detail": self.detail_text, "gen": self.gen, "gens": self.gens, "race": race, "land": land,
+                    "progress": {"hist": self.hist, "need": NEED_ROUNDS, **self.runs},
                     "best": best["id"] if best else None, "live": {k: x for k, x in (self.live_score or {}).items() if k != "each"} or None,
                     "episodes": len(self.eps), "train": n_tr, "test": len(self.eps) - n_tr,
                     "hours": EP_HOURS, "pop": POP, "elite": ELITE}

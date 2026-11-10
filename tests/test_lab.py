@@ -113,10 +113,16 @@ def test_what_the_lab_learned_survives_a_restart(tmp_path):
     for _ in range(3):
         a.step()
     b = Lab(load_config(), hub, load_limits())                         # "restart": a new lab reading the same folder
+    assert (b.hist, b.runs) == (a.hist, a.runs) and len(a.hist) == 3
     assert (b.gen, b.tested, b.land) == (a.gen, a.tested, a.land) and [v["id"] for v in b.pop] == [v["id"] for v in a.pop]
     assert b.view()["best"] is None and b.view()["land"]["tested"] == a.tested      # readable before its first round
     b.step()
-    assert b.gen == 4 and b.tested > a.tested and len(b.gens) == 4 and b.view()["best"] is not None
+    assert b.gen == 4 and b.tested > a.tested and len(b.gens) == 4 and b.view()["best"] is not None and len(b.hist) == 4
+    old = json.loads((tmp_path / "lab.json").read_text())                # a file saved before progress history existed
+    old.pop("hist"), old.pop("runs")
+    (tmp_path / "lab.json").write_text(json.dumps(old))
+    d = Lab(load_config(), hub, load_limits())
+    assert [r[0] for r in d.hist] == [1, 2, 3, 4] and abs(d.hist[-1][1] - b.hist[-1][1]) < 0.002 and d.hist[-1][4] is None
     (tmp_path / "lab.json").write_text(json.dumps({"v": 1, "land": {"n": [1]}, "pop": []}))    # a damaged file is ignored
     c = Lab(load_config(), hub, load_limits())
     assert c.gen == 0 and c.land["n"] == [0] * (LAND_N * LAND_N)

@@ -55,7 +55,7 @@ html{overflow-x:clip}
 #zoom ol{margin:10px 0 0;padding-left:20px;line-height:1.55}#zoom li{margin:4px 0}
 main{transition:transform .6s cubic-bezier(.16,1,.3,1)}main.push{transform:scale(1.05)}
 #zveil{position:fixed;inset:0;z-index:45;background:rgba(2,3,6,.62);opacity:0;pointer-events:none;transition:opacity .4s}#zveil.on{opacity:1;pointer-events:auto}
-#zoom{position:fixed;z-index:50;display:none;background:linear-gradient(180deg,#111b28,#0a1018);border:1px solid #2f4259;border-radius:10px;padding:16px 18px 14px;box-shadow:0 34px 100px rgba(0,0,0,.8),0 0 0 1px rgba(53,200,255,.14),0 0 60px rgba(53,200,255,.08);max-height:calc(100vh - 76px);overflow:auto;will-change:transform,opacity}
+#zoom{position:fixed;z-index:50;display:none;background:linear-gradient(180deg,#111b28,#0a1018);border:1px solid #2f4259;border-radius:10px;padding:16px 18px 14px;box-shadow:0 34px 100px rgba(0,0,0,.8),0 0 0 1px rgba(53,200,255,.14);max-height:calc(100vh - 76px);overflow:auto;will-change:transform,opacity}
 #zoom.on{display:block}#zT{font:600 15px var(--mono);margin:0 30px 10px 0}
 .zx{position:absolute;right:8px;top:8px;border:0;background:none;color:var(--dim);font-size:18px;line-height:1;padding:4px 9px}
 #zoom .kv{font-size:13px;animation:none;margin:0}#zoom .kv div{padding:7px 0}#zoom .kv p{font-size:13px;margin-top:12px;line-height:1.5}
@@ -93,7 +93,7 @@ body:not(.narrow):not(.lock) .wh{touch-action:none}
 .hero small,.stat small{display:block;color:var(--dim);font:10.5px var(--mono);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}
 .stat b{font:600 15px var(--mono);font-variant-numeric:tabular-nums}
 .fu{animation:fu .7s}.fd{animation:fd .7s}
-@keyframes fu{0%{text-shadow:0 0 14px var(--up);color:var(--up)}}@keyframes fd{0%{text-shadow:0 0 14px var(--down);color:var(--down)}}
+@keyframes fu{0%{color:var(--up)}}@keyframes fd{0%{color:var(--down)}}
 .up{color:var(--up)}.down{color:var(--down)}.dim{color:var(--dim)}.cy{color:var(--cy)}.warnc{color:var(--warn)}
 .nums div,.kv div{display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-bottom:1px solid var(--line)}
 .nums div span:first-child,.kv div span:first-child{color:var(--dim)}
@@ -116,6 +116,10 @@ tr.xd td{white-space:normal;text-align:left;background:var(--panel2);padding:2px
 .bar i{display:block;height:100%;background:var(--up);transition:width .5s}.bar i.hot{background:var(--down)}
 .row{display:flex;justify-content:space-between;gap:8px;font-size:12px}
 .lim{border-radius:4px;margin:0 -6px;padding:1px 6px}
+.prow{flex:1;min-height:0;display:flex;gap:16px}.prow .cw{flex:1.55}.goals{flex:1;min-width:260px;overflow:auto;font-size:12.5px}body.narrow .prow{flex-direction:column}body.narrow .prow .cw{min-height:200px}
+.goal{border-radius:5px;margin:0 -6px 2px;padding:5px 6px 1px;cursor:pointer}.goal:hover,.goal.on{background:rgba(53,200,255,.07)}.goal .row{display:flex;justify-content:space-between;gap:10px}.goal .row b{font-weight:600}
+.goal .tk{display:inline-block;width:15px;height:15px;line-height:15px;text-align:center;border-radius:50%;border:1px solid var(--dim);color:var(--dim);font-size:10px;margin-right:7px}.goal.done .tk{background:var(--up);border-color:var(--up);color:#04060a}
+.goal .gs{color:var(--dim);font-size:11.5px;margin:-4px 0 5px 22px}.goal .bar{margin-left:22px}.goal .bar i{background:var(--cy)}.goal.done .bar i{background:var(--up)}.verd{font-size:14px;margin:0 0 8px}.verd b{color:var(--ink)}
 .ev{font:11.5px var(--mono);padding:3px 4px;border-bottom:1px solid var(--line);display:flex;gap:8px}
 .ev.new{animation:evin .7s var(--ease)}@keyframes evin{from{opacity:0;transform:translateX(-10px);background:rgba(53,200,255,.18)}}
 .ev time{color:var(--dim);flex:none}.ev .k{flex:none;width:80px;color:var(--cy)}.ev .d{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
@@ -194,6 +198,7 @@ const C={bg:"#04060a",panel:"#090d13",line:"#17212d",ink:"#e9eff6",dim:"#6f7f93"
 /* ================= widgets: move, resize, fold, full screen ================= */
 const R=36,G=8,DEF={},EL={},grid=$("grid"),ph=$("ph"),veil=$("veil");
 const WT={acct:"Your account value over time. Green area: above where it started. Red: below.",price:"Left of NOW: what the price really did, one bar per hour. Right of NOW: 48 possible next 24 hours imagined by the forecast model (shadow only); the bright ones still match the real price. Triangles: the bot's own trades. Bottom strip: every live price reading.",
+  prog:"The one place to see whether the strategy lab and the forecast model are getting anywhere, and exactly what getting somewhere would look like.",
   land:"Test only. A 3D map of everything the lab has tried. Floor: two settings. Height: the average result on history the lab never trained on. The blue sheet is breakeven. Drag to turn it.",
   lat:"Each ball is one of the model's 48 imagined outcomes for the next 24 hours, dropped into a bin by how much the price ends up or down.",ridge:"Where the model thinks the price may sit, hour by hour. The front row is the next hour, the back row is 24 hours out.",
   matrix:"Odds table. Each cell is the percentage of the model's futures that are at or beyond that move, that many hours from now.",graph:"How the bot works, live. Every moving dot is one real event. Click a box to go inside it.",
@@ -209,22 +214,23 @@ const cwrap=id=>`<div class="cw"><canvas id="${id}"></canvas></div>`;
  ["matrix","Odds matrix",9,9,3,9,3,4,`<div class="fill"><div id="matrix"></div><p class="note" id="modelLine"></p></div>`],
  ["graph","Signal graph",0,18,8,10,4,6,cwrap("cGraph")],
  ["reg","Market state",8,18,4,10,3,5,`${cwrap("cReg")}<div class="mix" id="regMix"></div><div id="regime"></div>`],
- ["lab","Strategy lab",0,28,7,10,4,6,cwrap("cLab")],
- ["paths","Trade paths",7,28,5,10,4,6,cwrap("cPaths")],
- ["land","What the lab has learned",0,38,12,12,4,7,cwrap("cLand")],
- ["limits","Hard limits in use",0,50,4,7,3,4,`<div class="fill"><div id="limits"></div><div id="strats"></div></div>`],
- ["pos","Positions and orders",4,50,4,7,3,3,`<div class="fill" id="pos"></div>`],
- ["fills","Trades",8,50,4,7,3,3,`<div class="fill" id="fills"></div>`],
- ["events","What the bot is doing",0,57,12,6,4,3,`<div class="fill" id="events"></div>`],
- ["score","Forecaster scoreboard",0,63,6,8,3,3,`<div class="fill" id="score"></div>`],
- ["calls","Open calls being tracked",6,63,6,8,3,3,`<div class="fill" id="calls"></div>`],
- ["setup","Setup",0,71,12,11,4,4,`<div class="fill" id="setup"></div>`]
+ ["prog","Is it learning?",0,28,12,10,4,6,`<div class="prow">${cwrap("cProg")}<div class="goals" id="goals"></div></div>`],
+ ["lab","Strategy lab",0,38,7,10,4,6,cwrap("cLab")],
+ ["paths","Trade paths",7,38,5,10,4,6,cwrap("cPaths")],
+ ["land","What the lab has learned",0,48,12,12,4,7,cwrap("cLand")],
+ ["limits","Hard limits in use",0,60,4,7,3,4,`<div class="fill"><div id="limits"></div><div id="strats"></div></div>`],
+ ["pos","Positions and orders",4,60,4,7,3,3,`<div class="fill" id="pos"></div>`],
+ ["fills","Trades",8,60,4,7,3,3,`<div class="fill" id="fills"></div>`],
+ ["events","What the bot is doing",0,67,12,6,4,3,`<div class="fill" id="events"></div>`],
+ ["score","Forecaster scoreboard",0,73,6,8,3,3,`<div class="fill" id="score"></div>`],
+ ["calls","Open calls being tracked",6,73,6,8,3,3,`<div class="fill" id="calls"></div>`],
+ ["setup","Setup",0,81,12,11,4,4,`<div class="fill" id="setup"></div>`]
 ].forEach(([id,t,x,y,w,h,mw,mh,body])=>{DEF[id]={id,x,y,w,h,mw,mh,t};
   const el=document.createElement("section");el.className="w";el.id="w-"+id;el.dataset.id=id;
   el.innerHTML=`<h2 class="wh"><span class="grip" aria-hidden="true">⠿</span><span class="wt" id="t-${id}">${t}</span><span class="wn" id="n-${id}"></span><span class="wb"><button data-a="min" title="Fold or unfold" aria-label="Fold or unfold ${t}">–</button><button data-a="max" title="Full screen (or double-click the title)" aria-label="Full screen ${t}">⤢</button></span></h2><div class="wbody">${body}</div><i class="rs" title="Drag to resize"></i>`;
   el.style.animationDelay=(Object.keys(EL).length*45)+"ms";grid.appendChild(el);EL[id]=el;
   if(WT[id])el.querySelector(".wt").dataset.tip=WT[id];
-  if(["acct","price","lat","ridge","matrix","graph","reg","lab","paths","land"].includes(id)){const c=document.createElement("div");c.className="cap";c.id="cap-"+id;el.querySelector(".wbody").appendChild(c)}});
+  if(["acct","price","lat","ridge","matrix","graph","reg","lab","paths","land","prog"].includes(id)){const c=document.createElement("div");c.className="cap";c.id="cap-"+id;el.querySelector(".wbody").appendChild(c)}});
 let OPT=Object.assign({lock:false,auto:true,bg:true,hint:true},LS.get("opt",{})),L=LS.get("layout",null),MAXED=null,narrow=false,BUSY=false,FLOADED=false;
 function freshLayout(){const o={};for(const id in DEF){const d=DEF[id];o[id]={id,x:d.x,y:d.y,w:d.w,h:d.h,H:d.h,mode:"auto",min:false}}return o}
 
@@ -280,7 +286,7 @@ grid.addEventListener("pointerdown",e=>{const wh=e.target.closest(".wh"),rs=e.ta
 new ResizeObserver(()=>{if(!BUSY)place(view())}).observe(grid);
 /* widgets with nothing to show fold away by themselves and come back when they have something */
 const REL={fills:()=>(S.fills||[]).length>0,pos:()=>(S.positions||[]).length+(S.orders||[]).length>0,lat:()=>!!D,ridge:()=>!!RID,matrix:()=>!!(D&&D.source==="model"),
-  score:()=>(S.score||[]).length>0||!!(S.fc&&S.fc.enabled),lab:()=>!!(LAB&&LAB.gens&&LAB.gens.length),paths:()=>!!(LAB&&LAB.race&&LAB.race.v.length),land:()=>!!(LAB&&LAB.land&&LAB.land.tested),calls:()=>(S.open_calls||[]).length>0};
+  score:()=>(S.score||[]).length>0||!!(S.fc&&S.fc.enabled),lab:()=>!!(LAB&&LAB.gens&&LAB.gens.length),paths:()=>!!(LAB&&LAB.race&&LAB.race.v.length),land:()=>!!(LAB&&LAB.land&&LAB.land.tested),prog:()=>!!(LAB&&LAB.progress&&LAB.progress.hist.length),calls:()=>(S.open_calls||[]).length>0};
 function autoFold(){if(!OPT.auto||BUSY||!S.ready||!FLOADED)return;for(const id in REL){const it=L[id],want=REL[id]();if(it.mode==="auto"&&it.min===want){setMin(id,!want,false);if(want)ping(id)}}}
 /* layout menu */
 function drawMenu(){setH("menu",`<button data-m="lock">${OPT.lock?"Unlock moving and resizing":"Lock the layout"}<span>${OPT.lock?"locked":"free"}</span></button>
@@ -320,15 +326,18 @@ const take=id=>{if(CK&&CK.id===id){const c=CK;CK=null;return c}return null};
 const zoomEl=$("zoom"),zveil=$("zveil"),mainEl=document.querySelector("main");let zAnim=null;
 function zoomHTML(){const k=ZOOM.key;if(k.startsWith("i:")){const m=k.split(":"),ix=+m.pop(),dd=inner(m.slice(1).join(":")),q=dd&&dd.steps.filter(v=>!v.side).concat(dd.steps.filter(v=>v.side))[ix];
     return q?[esc(dd.title)+" · "+esc(q.label),kv([["right now",esc(q.val)],["status",{ok:"fine",warn:"worth watching",bad:"tripped",info:"information",idle:"not in use"}[q.st]||""]],esc(q.rule))]:null}
+  if(k.startsWith("lv:"))return labVarCard(+k.slice(3));if(k.startsWith("lc:"))return labCellCard(+k.slice(3));
   if(k.startsWith("n:")){const d=S.ready?nodeDetail(k.slice(2)):null;return d?[esc(d[0]),kv(d[1],d[2])]:null}const d=DET[k];return d?[d.t,d.f()]:null}
 function zoomRefresh(){if(!ZOOM)return;const h=zoomHTML();if(h){setH("zT",h[0]);setH("zB",h[1])}}
 function originRect(){if(!ZOOM)return null;const k=ZOOM.key,pushed=mainEl.classList.contains("push");let r=null;
   if(pushed){mainEl.style.transition="none";mainEl.classList.remove("push");void mainEl.offsetWidth}
   if(k.startsWith("n:")){const n=Gs.nodes[k.slice(2)],c=$("cGraph").getBoundingClientRect();if(n&&c.width)r={left:c.left+n.x-n.r,top:c.top+n.y-n.r,width:n.r*2,height:n.r*2}}
   else{const el=document.querySelector('[data-x="'+CSS.escape(k)+'"]');if(el){const q=el.getBoundingClientRect();if(q.width&&q.bottom>0&&q.top<innerHeight)r={left:q.left,top:q.top,width:q.width,height:q.height}}}
+  if(!r&&ZOOM.from&&/^l[vc]:/.test(k))r=ZOOM.from;
   if(pushed){mainEl.classList.add("push");void mainEl.offsetWidth;mainEl.style.transition=""}return r}
 function openZoom(key,a,cx,cy){if(ZOOM){const same=ZOOM.key===key;closeZoom();if(same)return}
-  ZOOM={key};NODE=key.startsWith("n:")?key.slice(2):null;const h=zoomHTML();if(!h){ZOOM=null;NODE=null;return}
+  ZOOM={key,from:{left:a.left,top:a.top,width:a.width,height:a.height}};NODE=key.startsWith("n:")?key.slice(2):null;const h=zoomHTML();if(!h){ZOOM=null;NODE=null;return}
+  if(key.startsWith("lv:"))loadVar(+key.slice(3));
   showTip("");$("zT")._h=$("zB")._h=null;setH("zT",h[0]);setH("zB",h[1]);
   const W=Math.min(innerWidth-24,clamp(a.width*1.08,400,620));zoomEl.style.width=W+"px";zoomEl.style.left=zoomEl.style.top="0px";zoomEl.classList.add("on");
   const H=zoomEl.offsetHeight,left=clamp(a.left+a.width/2-W/2,12,Math.max(12,innerWidth-W-12)),top=clamp(a.top+a.height/2-H/2,64,Math.max(64,innerHeight-H-12));
@@ -464,7 +473,7 @@ function render(){
       <button class="stop" onclick="goLive()">Go live with real money</button>
       ${s.mode==="paper"?`<button onclick="if(confirm('Wipe the practice account and start over?'))post({cmd:'reset_paper'})">Reset practice account</button>`:""}
     </div>`}
-  renderModelText();track();syncGraph();labNote();captions();autoGrow();autoFold();zoomRefresh();
+  renderModelText();track();syncGraph();labNote();renderGoals();captions();autoGrow();autoFold();zoomRefresh();
 }
 function kronosRow(){const f=S.fc||{};if(!f.enabled)return"";const miss=(f.graded||0)-(f.hits||0);
   return xr("s:kronos",`<td class="cy">Kronos model (shadow)</td><td class="up">${f.hits||0}</td><td class="down">${miss}</td><td>–</td><td>${f.hit_rate==null?"new":f.hit_rate.toFixed(2)}</td>`,5,
@@ -492,6 +501,8 @@ function captions(){const s=S;if(!s.ready)return;const c=s.curve||[],live=s.mode
       setH("cap-paths",`<b>${tot.filter(v=>v>0).length} of ${tot.length} variants are ahead</b> over all ${R.t0.length} slices; ${un.filter(v=>v>0).length} are ahead on the shaded part they never trained on. Best total ${sp(ud(Math.max(...tot)),1)}, worst ${sp(ud(Math.min(...tot)),-1)}. Your live settings (amber): ${sp(ud(lt),lt)}.`)}
     else if(DETAIL){const ps=curPaths();if(ps.length){const w=ps.filter(x=>x.pnl>0).length,l=ps.filter(x=>x.pnl<0).length,tt=ps.reduce((a,x)=>a+x.pnl,0);setH("cap-paths",PSEL!=null&&ps[PSEL]?`<b>One path</b>, starting ${clock(ps[PSEL].t0)}: ${sp(ud(ps[PSEL].pnl),ps[PSEL].pnl)}. Top: the price, with each buy and exit marked. Bottom: this path's running result.`:`<b>${w} paths made money, ${l} lost, ${ps.length-w-l} never traded.</b> Total ${sp(ud(tt),tt)}. Each line is one ${PMODE==="model"?"imagined future":"slice of real history"}; above the dashed line is profit.`)}}}
   else{setH("cap-lab",esc((LAB&&LAB.detail)||"The lab starts once price history is in."));setH("cap-paths","")}
+  {const q=progress();if(q){const L=q.last;setH("cap-prog",(q.p.pos>=q.need?"That is what progress looks like. It is evidence, not proof: past prices do not have to repeat.":`<b>What to hope for:</b> the white line climbing above the green dashed $0 line and staying there for ${q.need} rounds`+(L[4]!=null&&L[1]<=L[4]?", and above the amber line, which is the settings the bot runs today":"")+`. It is ${L[1]>0?"above it now":sp(ud(-L[1]).slice(1),-1)+" a slice short"}. Best it has ever been: ${sp(ud(q.best[1]),q.best[1])} in round ${q.best[0]}.`)+` The lab is test only and changes nothing live.`)}
+    else setH("cap-prog",esc((LAB&&LAB.detail)||"Progress appears once the lab has run a round."))}
   const Ld=LAB&&LAB.land;if(Ld&&Ld.tested){const used=Ld.n.filter(n=>n).length,b=landBest(Ld,3),lc=landCell(Ld,Ld.live[0],Ld.live[1]),r=b>=0?landRange(Ld,b):null,won=Ld.te.filter((v,i)=>Ld.n[i]>=3&&v>0).length,tried3=Ld.n.filter(n=>n>=3).length;
     setH("cap-land",`<b>${Ld.tested.toLocaleString()} settings tried so far</b>, covering ${used} of ${Ld.n.length} regions of the map. `+(r?`Of the ${tried3} regions tried at least 3 times, <b>${won} made money on history the lab never trained on</b>. ${Ld.te[b]>.004?"The best of them":"The closest to breakeven"}: first bid ${pc2(r[0])} to ${pc2(r[1])} below the price, selling ${pc2(r[2])} to ${pc2(r[3])} above the fill, averaging ${sp(ud(Ld.te[b]),Ld.te[b])} a slice over ${Ld.n[b]} tries. `:"No region has been tried 3 times yet. ")+
       `Your live settings sit in a region ${Ld.n[lc]?"averaging "+sp(ud(Ld.te[lc]),Ld.te[lc])+" over "+Ld.n[lc]+" tr"+(Ld.n[lc]>1?"ies":"y"):"nobody has tried yet"}. Taller is better, only what pokes through the blue sheet made money, and thin means few tries. Test only: nothing here trades.`)}
@@ -552,10 +563,29 @@ $("matrix").addEventListener("click",e=>{const c=e.target.closest("td[data-l]");
 let lastHr=null;function markHour(){const h=hour();if(h===lastHr)return;lastHr=h;document.querySelectorAll("#matrix tr[data-hr]").forEach(tr=>tr.classList.toggle("hr",+tr.dataset.hr===h))}
 
 /* ================= strategy lab (shadow only) ================= */
+/* click any variant (a dot on the tree, a ball on the map) or any region of the map and it expands into a card with everything known about it */
+const VARC={};
+async function loadVar(id){if(!LAB||(VARC[id]&&VARC[id].gen===LAB.gen))return;try{const r=await fetch("/api/lab?v="+id);if(r.ok){if(Object.keys(VARC).length>40)for(const k in VARC)delete VARC[k];VARC[id]=Object.assign(await r.json(),{gen:LAB.gen});zoomRefresh()}}catch(e){}}
+function openVar(id,ev){openZoom("lv:"+id,ev.target.getBoundingClientRect(),ev.clientX,ev.clientY)}
+function canvasZoom(cid,key,x,y,r,ck){const b=$(cid).getBoundingClientRect();openZoom(key,{left:b.left+x-r,top:b.top+y-r,width:r*2,height:r*2},ck.cx,ck.cy)}
+function labVarCard(id){if(!LAB||!LAB.gens)return null;let row=null,gi=-1;for(let i=LAB.gens.length-1;i>=0&&!row;i--){row=LAB.gens[i].v.find(r=>r[0]===id)||null;if(row)gi=i}
+  const Ld=LAB.land,p=Ld&&Ld.pop.find(q=>q[0]===id),d=VARC[id]||(DETAIL&&DETAIL.id===id?DETAIL:null),sg=v=>`<span class="${sign(v)}">${ud(v)}</span>`,rows=[];if(!row&&!p&&!d)return null;
+  if(d)rows.push(["resting bids below the price",d.levels.map(pc).join(", ")],["sells for a profit at","+"+pc(d.tp)+" above each fill"],["stops out at",pc(d.stop)+" below where the bids were set"],["gives up after",d.hold+" hours"],["size of each bid",usd0(d.usd)]);
+  else if(p)rows.push(["first bid rests",pc2(p[1])+" below the price"],["sells",pc2(p[2])+" above each fill"]);
+  if(row)rows.push(["average per "+LAB.hours+"h slice, trained on",sg(row[3])],["same, on history it never saw",`<b>${sg(row[4])}</b>`],["slices that made money",Math.round(row[5]*100)+"%"],["buys per slice",row[6].toFixed(2)],[row[7]?"kept and re-tested for":"first tried in",row[7]?row[7]+" round"+(row[7]>1?"s":""):"round "+LAB.gens[gi].g],["came from",row[1]?"variant #"+row[1]:"a random newcomer"]);
+  if(d&&d.paths.length){const w=d.paths.filter(x=>x.pnl>0).length,l=d.paths.filter(x=>x.pnl<0).length,pn=d.paths.map(x=>x.pnl);rows.push(["its "+d.paths.length+" trade paths",w+" made money, "+l+" lost, "+(d.paths.length-w-l)+" never traded"],["best and worst single path",sg(Math.max(...pn))+" and "+sg(Math.min(...pn))])}
+  rows.push(["status",p?(id===LAB.best?"alive, and the best right now":"alive this round"):"dropped: better variants replaced it"]);
+  if(p&&Ld){const c=landCell(Ld,p[1],p[2]);rows.push(["its region of the map",Ld.n[c]+" tried there so far, averaging "+sg(Ld.te[c]||0)+" on unseen history"])}
+  return ["Strategy variant #"+id+(id===LAB.best?" · best now":""),kv(rows,(d?"":"Loading its full settings. ")+"The unseen-history number is the honest one: the best of many tries always looks better on the history it was picked on. Test only: nothing here trades or changes the live strategy.")+`<div class="btns"><button onclick="closeZoom();setFocusV(${id===LAB.best?"null":id})">Show every trade path it took</button></div>`]}
+function labCellCard(c){const Ld=LAB&&LAB.land;if(!Ld||!(c>=0&&c<Ld.n.length))return null;const r=landRange(Ld,c),n=Ld.n[c],hs=Ld.pop.filter(p=>landCell(Ld,p[1],p[2])===c).sort((a,b)=>b[3]-a[3]),sg=v=>`<span class="${sign(v)}">${ud(v)}</span>`;
+  const ok=Ld.n.map((m,i)=>m>=3?i:-1).filter(i=>i>=0).sort((a,b)=>Ld.te[b]-Ld.te[a]),rk=ok.indexOf(c),rows=[["first bid rests",pc2(r[0])+" to "+pc2(r[1])+" below the price"],["sells",pc2(r[2])+" to "+pc2(r[3])+" above each fill"],["variants tried here so far",n||"none yet"]];
+  if(n)rows.push(["their average per "+LAB.hours+"h slice, trained on",sg(Ld.tr[c])],["same, on history they never saw",`<b>${sg(Ld.te[c])}</b>`],["rank among regions tried 3 times or more",rk>=0?(rk+1)+" of "+ok.length:"not ranked: fewer than 3 tries"]);
+  rows.push(["alive here this round",hs.length||"none"]);if(landCell(Ld,Ld.live[0],Ld.live[1])===c)rows.push(["your live settings","sit in this region"]);
+  return ["Region of the map",kv(rows,n?(n<3?"Only "+n+" tr"+(n>1?"ies":"y")+" here, so this could easily be luck. ":"")+"This is the average of every variant ever tried with settings in this range. Test only: nothing here trades.":"Nothing has been tried here yet.")+(hs.length?`<div class="btns">`+hs.slice(0,8).map(p=>`<span class="chip" onclick="openVar(${p[0]},event)">#${p[0]} ${ud(p[3])}</span>`).join("")+`</div>`:"")]}
 let LAB=null,DETAIL=null,FOCUSV=null,PMODE="race",PSEL=null,labT=0,detT=0,detKey="",LABREV=0,LABGEN=0;
 const pc=v=>(v*100).toFixed(1)+"%",ud=v=>(v>=0?"+":"-")+"$"+Math.abs(v).toFixed(2);
 async function loadLab(){labT=Date.now();try{const r=await (await fetch("/api/lab"+(LAB&&LAB.gen&&LAB.gens?"?since="+LAB.gen:""))).json();
-    if(r.unchanged&&LAB){LAB.state=r.state;LAB.detail=r.detail}else{const og=LAB?LAB.gen:null,ob=LAB?LAB.best:null;LAB=r;if(og!=null&&r.gen!==og)mark("gen");if(ob!=null&&r.best!==ob)mark("champ")}}catch(e){return}
+    if(r.unchanged&&LAB){LAB.state=r.state;LAB.detail=r.detail}else{PROG=null;const og=LAB?LAB.gen:null,ob=LAB?LAB.best:null;LAB=r;if(og!=null&&r.gen!==og)mark("gen");if(ob!=null&&r.best!==ob)mark("champ")}}catch(e){return}
   const want=FOCUSV!=null?FOCUSV:LAB.best;
   if(want!=null){const key=want+"|"+(FOCUSV==null?Math.floor(LAB.gen/3):0)+"|"+(S.fc&&S.fc.made);
     if(key!==detKey||Date.now()-detT>60000){detKey=key;detT=Date.now();try{const r=await fetch("/api/lab?v="+want);
@@ -597,15 +627,15 @@ function drawLab(t,dt){const c0=cv("cLab");if(!c0)return;const [g,w,h]=c0,Lb=LAB
   for(let i=1;i<n;i++){const k=clamp(LABREV-(i-1),0,1);if(k<=0)break;pos[i].forEach(p=>{const s=src(i,p[2]);if(!s)return;const key=i+":"+p[2][0],strong=lead.has(key),hot=hl&&hl.has(key);
       const mx=(s[0]+p[0])/2,ex=s[0]+(p[0]-s[0])*k;g.beginPath();g.moveTo(s[0],s[1]);
       if(k>=1)g.bezierCurveTo(mx,s[1],mx,p[1],p[0],p[1]);else{const e=k*k*(3-2*k);g.bezierCurveTo(s[0]+(mx-s[0])*k,s[1],s[0]+(mx-s[0])*k,s[1]+(p[1]-s[1])*e,ex,s[1]+(p[1]-s[1])*e)}
-      g.strokeStyle=hot?C.cy:strong?"rgba(233,239,246,.95)":`rgba(${col(p[2])},${hl?.08:p[2][7]>0?.5:.2})`;g.lineWidth=hot||strong?1.8:1;if(strong||hot){g.shadowColor=hot?C.cy:C.ink;g.shadowBlur=8}g.stroke();g.shadowBlur=0})}
+      g.strokeStyle=hot?C.cy:strong?"rgba(233,239,246,.95)":`rgba(${col(p[2])},${hl?.08:p[2][7]>0?.5:.2})`;g.lineWidth=hot||strong?1.8:1;g.stroke();g.shadowBlur=0})}
   pos.forEach((m,i)=>{const k=clamp(LABREV-(i-1),0,1);if(k<=0)return;const lastCol=i===n-1;m.forEach(p=>{const r=p[2],key=i+":"+r[0],strong=lead.has(key),hot=hl&&hl.has(key),s=src(i,r),e=k*k*(3-2*k);
       const x=s&&k<1?s[0]+(p[0]-s[0])*k:p[0],y=s&&k<1?s[1]+(p[1]-s[1])*e:p[1],rad=strong?3:1.8;
-      g.beginPath();g.arc(x,y,rad,0,7);g.fillStyle=hot?C.cy:strong?C.ink:`rgba(${col(r)},${hl?.15:lastCol?.95:.55})`;if(lastCol||strong){g.shadowColor=g.fillStyle;g.shadowBlur=6}g.fill();g.shadowBlur=0;
+      g.beginPath();g.arc(x,y,rad,0,7);g.fillStyle=hot?C.cy:strong?C.ink:`rgba(${col(r)},${hl?.15:lastCol?.95:.55})`;g.fill();g.shadowBlur=0;
       if(fv===r[0]){g.beginPath();g.arc(x,y,6,0,7);g.strokeStyle=C.warn;g.lineWidth=1.4;g.stroke()}})});
   if(champ&&LABREV>=n-1){ringEv(g,champ[0],champ[1],"gen",1.6,5,16,C.ink);ringEv(g,champ[0],champ[1],"champ",3,6,36,C.cy);const nb=since("champ")<10;label(g,nb?"new best":"best now",champ[0]-8,champ[1]-8,nb?C.cy:C.ink,"right")}
   if(hn){const r=hn[1][2];g.beginPath();g.arc(hn[1][0],hn[1][1],5.5,0,7);g.strokeStyle=C.cy;g.lineWidth=1.5;g.stroke();
-    tipHTML=`<b>Variant #${r[0]}, round ${gens[hn[0]].g}</b>`+trow("avg per slice, trained on",`<span class="${sign(r[3])}">${ud(r[3])}</span>`)+trow("avg per slice, unseen history",`<span class="${sign(r[4])}">${ud(r[4])}</span>`)+trow("slices that made money",Math.round(r[5]*100)+"%")+trow("buys per slice",r[6].toFixed(2))+trow(r[7]?"kept and re-tested":"new this round",r[7]?r[7]+" rounds":(r[1]?"child of #"+r[1]:"random newcomer"))+`<i>Its family line is lit. Click to see every trade path it took.</i>`}
-  if(ck){if(hn){const id=hn[1][2][0];setFocusV(id===Lb.best?null:id)}else if(FOCUSV!=null)setFocusV(null)}}
+    tipHTML=`<b>Variant #${r[0]}, round ${gens[hn[0]].g}</b>`+trow("avg per slice, trained on",`<span class="${sign(r[3])}">${ud(r[3])}</span>`)+trow("avg per slice, unseen history",`<span class="${sign(r[4])}">${ud(r[4])}</span>`)+trow("slices that made money",Math.round(r[5]*100)+"%")+trow("buys per slice",r[6].toFixed(2))+trow(r[7]?"kept and re-tested":"new this round",r[7]?r[7]+" rounds":(r[1]?"child of #"+r[1]:"random newcomer"))+`<i>Its family line is lit. Click to expand everything known about it.</i>`}
+  if(ck){if(hn)canvasZoom("cLab","lv:"+hn[1][2][0],hn[1][0],hn[1][1],7,ck);else if(FOCUSV!=null)setFocusV(null)}}
 
 /* trade paths: one line per test slice (or per sampled future) for the variant in focus */
 const RC={gen:null,born:new Map(),gone:[],rows:null};let PKEY="";
@@ -626,8 +656,8 @@ function drawRace(g,w,h,t,hv,ck){const R=LAB.race,E=R.t0.length,padL=46,padR=12,
   rows.forEach(r=>{if(r===hr||r.id===LAB.best)return;const end=r.c[E-1],c=end>0?"0,230,118":end<0?"255,46,76":"111,127,147",p=pg(r.id),tip=path(r.c,p);g.strokeStyle=`rgba(${c},${hr?.08:.38})`;g.lineWidth=1;g.stroke();
     if(p<E){g.beginPath();g.arc(tip[0],tip[1],2,0,7);g.fillStyle=`rgba(${c},.95)`;g.fill()}});
   if(live.length){path(live,E);g.strokeStyle=hr?"rgba(255,176,32,.25)":C.warn;g.lineWidth=1.4;g.setLineDash([6,4]);g.stroke();g.setLineDash([]);if(!hr)label(g,"live settings",w-padR-2,Y(live[E-1])-5,C.warn,"right")}
-  const ch=rows.find(r=>r.id===LAB.best);if(ch&&ch!==hr){const tip=path(ch.c,pg(ch.id));g.strokeStyle=hr?"rgba(233,239,246,.25)":C.ink;g.lineWidth=2;g.shadowColor=C.ink;g.shadowBlur=hr?0:9;g.stroke();g.shadowBlur=0;if(!hr){g.beginPath();g.arc(tip[0],tip[1],3,0,7);g.fillStyle=C.ink;g.fill();label(g,"best now",tip[0]-6,tip[1]-8,C.ink,"right")}}
-  if(hr){const end=hr.c[E-1],c=end>0?C.up:end<0?C.down:"#9fb0c3";path(hr.c,E);g.strokeStyle=c;g.lineWidth=2.4;g.shadowColor=c;g.shadowBlur=10;g.stroke();g.shadowBlur=0;g.beginPath();g.arc(X(hx),Y(hr.c[hx]),4,0,7);g.fillStyle=C.ink;g.fill();
+  const ch=rows.find(r=>r.id===LAB.best);if(ch&&ch!==hr){const tip=path(ch.c,pg(ch.id));g.strokeStyle=hr?"rgba(233,239,246,.25)":C.ink;g.lineWidth=2;g.stroke();g.shadowBlur=0;if(!hr){g.beginPath();g.arc(tip[0],tip[1],3,0,7);g.fillStyle=C.ink;g.fill();label(g,"best now",tip[0]-6,tip[1]-8,C.ink,"right")}}
+  if(hr){const end=hr.c[E-1],c=end>0?C.up:end<0?C.down:"#9fb0c3";path(hr.c,E);g.strokeStyle=c;g.lineWidth=2.4;g.stroke();g.shadowBlur=0;g.beginPath();g.arc(X(hx),Y(hr.c[hx]),4,0,7);g.fillStyle=C.ink;g.fill();
     const tr=hr.each.reduce((a,v,i)=>a+(R.split[i]==="train"?v:0),0),te=end-tr;
     tipHTML=`<b>Variant #${hr.id}${hr.id===LAB.best?" (best now)":""}</b>`+trow("slice starting "+clock(R.t0[hx]),ud(hr.each[hx]))+trow("running total here",ud(hr.c[hx]))+trow("total on history it trained on",`<span class="${sign(tr)}">${ud(tr)}</span>`)+trow("total on history it never saw",`<span class="${sign(te)}">${ud(te)}</span>`)+`<i>A line shooting across is a variant tried for the first time this round. A grey line fading out was just dropped. Click to open every trade path this variant took.</i>`}
   label(g,clock(R.t0[0]),padL,h-4,C.dim);if(w>780)label(g,`running total over ${E} slices of real history, one line per variant`,(padL+w-padR)/2,h-4,C.dim,"center");label(g,clock(R.t0[E-1]),w-padR,h-4,C.dim,"right");
@@ -641,10 +671,10 @@ function drawPaths(t){const c0=cv("cPaths");if(!c0)return;const [g,w,h]=c0;if(PM
     g.beginPath();g.moveTo(X(0),Y(p.o));for(let i=0;i<=Math.min(N-1,upto);i++)g.lineTo(X(i),Y(p.c[i]));g.strokeStyle=C.ink;g.lineWidth=1.4;g.stroke();
     [0,.5,1].forEach(q=>{const v=lo+(hi-lo)*q;label(g,Math.round(v).toLocaleString(),padL-5,Y(v)+3,C.dim,"right")});
     const buys=[];p.tr.forEach(tr=>{if(tr[0]>prog)return;const x=X(tr[0]),y=Y(tr[2]),c=TRC[tr[1]];if(tr[1]==="buy")buys.push([x,y]);else{const b=buys.shift();if(b){g.strokeStyle=c;g.setLineDash([3,3]);g.beginPath();g.moveTo(b[0],b[1]);g.lineTo(x,y);g.stroke();g.setLineDash([])}}
-      const pop=RM?1:Math.min(1,(prog-tr[0])/1.5);g.beginPath();g.arc(x,y,3+4*(1-pop),0,7);g.fillStyle=c;g.shadowColor=c;g.shadowBlur=10;g.fill();g.shadowBlur=0;label(g,TRN[tr[1]].split(" ")[0]+" "+Math.round(tr[2]).toLocaleString(),x+(x>w-90?-7:7),y-7,c,x>w-90?"right":"left")});
+      const pop=RM?1:Math.min(1,(prog-tr[0])/1.5);g.beginPath();g.arc(x,y,3+4*(1-pop),0,7);g.fillStyle=c;g.fill();g.shadowBlur=0;label(g,TRN[tr[1]].split(" ")[0]+" "+Math.round(tr[2]).toLocaleString(),x+(x>w-90?-7:7),y-7,c,x>w-90?"right":"left")});
     const e0=Math.min(0,...p.eq),e1=Math.max(0,...p.eq),es=(e1-e0)||1,EY=v=>ph+12+(e1-v)/es*(h-padB-ph-16),ecol=p.pnl>0?C.up:p.pnl<0?C.down:C.dim;
     g.strokeStyle="#3a4c61";g.setLineDash([3,4]);g.beginPath();g.moveTo(padL,EY(0));g.lineTo(w-padR,EY(0));g.stroke();g.setLineDash([]);label(g,"$0",padL-5,EY(0)+3,C.dim,"right");
-    g.beginPath();g.moveTo(X(0),EY(0));for(let i=0;i<=Math.min(N-1,upto);i++)g.lineTo(X(i),EY(p.eq[i]));g.strokeStyle=ecol;g.lineWidth=1.6;g.shadowColor=ecol;g.shadowBlur=7;g.stroke();g.shadowBlur=0;
+    g.beginPath();g.moveTo(X(0),EY(0));for(let i=0;i<=Math.min(N-1,upto);i++)g.lineTo(X(i),EY(p.eq[i]));g.strokeStyle=ecol;g.lineWidth=1.6;g.stroke();g.shadowBlur=0;
     label(g,(p.split==="model"?"model future":"real past, "+(p.split==="test"?"unseen by the lab":"trained on"))+" · starts "+clock(p.t0)+" · result "+ud(p.pnl),padL,h-4,ecol);
     if(hv){vline(g,X(hx),padT,h-padB,"rgba(233,239,246,.3)",[2,3]);const here=p.tr.filter(tr=>tr[0]===hx);tipHTML=`<b>Hour ${hx+1} of ${N}</b>`+trow("price range",usd0(p.lo[hx])+" to "+usd0(p.hi[hx]))+trow("close",usd0(p.c[hx]))+trow("this path so far",ud(p.eq[hx]))+here.map(tr=>trow(TRN[tr[1]],usd0(tr[2]))).join("")+`<i>Click for all paths. Use ◀ ▶ above to step through them.</i>`}
     if(ck){PSEL=null;labNote()}return}
@@ -655,7 +685,7 @@ function drawPaths(t){const c0=cv("cPaths");if(!c0)return;const [g,w,h]=c0;if(PM
   ps.forEach((p,i)=>{if(i===hp)return;const c=p.pnl>0?"0,230,118":p.pnl<0?"255,46,76":"111,127,147";g.beginPath();g.moveTo(X(0),Y(0));for(let k=0;k<=Math.min(N-1,upto);k++)g.lineTo(X(k),Y(p.eq[k]));
     g.strokeStyle=`rgba(${c},${hp>=0?.1:p.split==="test"?.85:.3})`;g.lineWidth=p.split==="test"?1.4:1;g.stroke();
     if(hp<0)p.tr.forEach(tr=>{if(tr[0]>prog)return;g.beginPath();g.arc(X(tr[0]),Y(p.eq[tr[0]]),1.8,0,7);g.fillStyle=TRC[tr[1]];g.fill()})});
-  if(hp>=0){const p=ps[hp],c=p.pnl>0?C.up:p.pnl<0?C.down:"#9fb0c3";g.beginPath();g.moveTo(X(0),Y(0));p.eq.forEach((v,k)=>g.lineTo(X(k),Y(v)));g.strokeStyle=c;g.lineWidth=2.2;g.shadowColor=c;g.shadowBlur=10;g.stroke();g.shadowBlur=0;
+  if(hp>=0){const p=ps[hp],c=p.pnl>0?C.up:p.pnl<0?C.down:"#9fb0c3";g.beginPath();g.moveTo(X(0),Y(0));p.eq.forEach((v,k)=>g.lineTo(X(k),Y(v)));g.strokeStyle=c;g.lineWidth=2.2;g.stroke();g.shadowBlur=0;
     p.tr.forEach(tr=>{g.beginPath();g.arc(X(tr[0]),Y(p.eq[tr[0]]),4,0,7);g.fillStyle=TRC[tr[1]];g.fill()});
     tipHTML=`<b>${p.split==="model"?"Model future":"Real past"}, starting ${clock(p.t0)}</b>`+trow("result",`<span class="${sign(p.pnl)}">${ud(p.pnl)}</span>`)+(p.split==="model"?"":trow("history",p.split==="test"?"unseen by the lab":"trained on"))+(p.tr.length?p.tr.slice(0,5).map(tr=>trow("hour "+(tr[0]+1)+": "+TRN[tr[1]],usd0(tr[2]))).join(""):trow("trades","none: no bid was reached"))+`<i>Click to zoom into this one path.</i>`}
   const win=ps.filter(p=>p.pnl>0).length,lose=ps.filter(p=>p.pnl<0).length;label(g,`${ps.length} paths: ${win} made money, ${lose} lost, ${ps.length-win-lose} never traded`+(PMODE==="past"?" · bright = history the lab never trained on":""),padL,h-4,C.dim);
@@ -694,7 +724,7 @@ function drawBg(t,dt){const c=$("bg"),W=innerWidth,H=innerHeight;if(c.width!==W|
 
 /* depth helpers: lit spheres, extruded bars, boxed tags */
 const shade=(hex,k)=>{const n=parseInt(hex.slice(1),16),f=v=>Math.round(clamp(k<0?v*(1+k):v+(255-v)*k,0,255));return `rgb(${f(n>>16)},${f(n>>8&255)},${f(n&255)})`};
-function sphere(g,x,y,r,col,glow){const gr=g.createRadialGradient(x-r*.35,y-r*.4,r*.08,x,y,r);gr.addColorStop(0,shade(col,.7));gr.addColorStop(.5,col);gr.addColorStop(1,shade(col,-.6));g.beginPath();g.arc(x,y,r,0,7);g.fillStyle=gr;if(glow){g.shadowColor=col;g.shadowBlur=glow}g.fill();g.shadowBlur=0}
+function sphere(g,x,y,r,col){const gr=g.createRadialGradient(x-r*.35,y-r*.4,r*.08,x,y,r);gr.addColorStop(0,shade(col,.7));gr.addColorStop(.5,col);gr.addColorStop(1,shade(col,-.6));g.beginPath();g.arc(x,y,r,0,7);g.fillStyle=gr;g.fill();g.shadowBlur=0}
 function block(g,x,y,w,h,d,col){if(h<=0)return;g.fillStyle=shade(col,-.5);g.beginPath();g.moveTo(x+w,y);g.lineTo(x+w+d,y-d*.6);g.lineTo(x+w+d,y+h-d*.6);g.lineTo(x+w,y+h);g.closePath();g.fill();
   g.fillStyle=shade(col,.35);g.beginPath();g.moveTo(x,y);g.lineTo(x+d,y-d*.6);g.lineTo(x+w+d,y-d*.6);g.lineTo(x+w,y);g.closePath();g.fill();
   const gr=g.createLinearGradient(x,y,x,y+h);gr.addColorStop(0,col);gr.addColorStop(1,shade(col,-.4));g.fillStyle=gr;g.fillRect(x,y,w,h)}
@@ -708,7 +738,7 @@ function drawCurve(t){const c0=cv("cCurve");if(!c0)return;const [g,w,h]=c0,c=S.c
   g.beginPath();v.forEach((y,i)=>i?g.lineTo(X(i)+D3,Y(y)-D3*.6):g.moveTo(X(i)+D3,Y(y)-D3*.6));for(let i=v.length-1;i>=0;i--)g.lineTo(X(i),Y(v[i]));g.closePath();g.fillStyle=shade(col,-.55);g.fill();   // the ribbon's far edge
   g.save();g.beginPath();g.rect(0,0,w,yb);g.clip();g.beginPath();v.forEach((y,i)=>i?g.lineTo(X(i),Y(y)):g.moveTo(X(i),Y(y)));g.lineTo(X(v.length-1),yb);g.lineTo(X(0),yb);g.closePath();g.fillStyle="rgba(0,230,118,.16)";g.fill();g.restore();
   g.save();g.beginPath();g.rect(0,yb,w,h);g.clip();g.beginPath();v.forEach((y,i)=>i?g.lineTo(X(i),Y(y)):g.moveTo(X(i),Y(y)));g.lineTo(X(v.length-1),yb);g.lineTo(X(0),yb);g.closePath();g.fillStyle="rgba(255,46,76,.18)";g.fill();g.restore();
-  g.beginPath();v.forEach((y,i)=>i?g.lineTo(X(i),Y(y)):g.moveTo(X(i),Y(y)));g.strokeStyle=col;g.lineWidth=1.8;g.shadowColor=col;g.shadowBlur=8;g.stroke();g.shadowBlur=0;
+  g.beginPath();v.forEach((y,i)=>i?g.lineTo(X(i),Y(y)):g.moveTo(X(i),Y(y)));g.strokeStyle=col;g.lineWidth=1.8;g.stroke();g.shadowBlur=0;
   if(!flat){sphere(g,X(iHi),Y(hi),3,C.up);label(g,"high "+usd(hi),X(iHi),Y(hi)-7,C.up,iHi>v.length*.8?"right":"center");sphere(g,X(iLo),Y(lo),3,C.down);label(g,"low "+usd(lo),X(iLo),Y(lo)+14,C.down,iLo>v.length*.8?"right":"center")}
   (S.fills||[]).forEach(f=>{if(f.ts<c[0][0])return;let i=c.findIndex(p=>p[0]>=f.ts);if(i<0)i=v.length-1;const x=X(i),y=Y(v[i]),b=f.side==="buy",o=b?1:-1;g.beginPath();g.moveTo(x,y+5*o);g.lineTo(x-3.5,y+11*o);g.lineTo(x+3.5,y+11*o);g.closePath();g.fillStyle=b?C.cy:C.warn;g.fill()});
   const ex=X(v.length-1),ey=Y(last);ringEv(g,ex,ey,"eq",1.4,4,17,DIRC(evd("eq")));ringEv(g,ex,ey,"fill",2.4,6,32,C.cy);sphere(g,ex,ey,4,col,8);
@@ -723,7 +753,7 @@ function drawPrice(t){const c0=cv("cPrice");if(!c0)return;const [g,w,h]=c0,cs=F.
   if(cs.length<6){ // no candle history (practice market): live line
     if(PX.length<2)return emptyMsg(g,w,h,"collecting prices");
     const lo=Math.min(...PX),hi=Math.max(...PX),sp=(hi-lo)||1,X=i=>i/(PX.length-1)*(w-padR),Y=y=>h-padB-(y-lo)/sp*(h-padB-padT-6);
-    g.beginPath();PX.forEach((y,i)=>i?g.lineTo(X(i),Y(y)):g.moveTo(X(i),Y(y)));g.strokeStyle=C.cy;g.lineWidth=1.4;g.shadowColor=C.cy;g.shadowBlur=6;g.stroke();g.shadowBlur=0;
+    g.beginPath();PX.forEach((y,i)=>i?g.lineTo(X(i),Y(y)):g.moveTo(X(i),Y(y)));g.strokeStyle=C.cy;g.lineWidth=1.4;g.stroke();g.shadowBlur=0;
     ringEv(g,w-padR,Y(price),"tick",.9,3,13,DIRC(evd("tick")));g.beginPath();g.arc(w-padR,Y(price),3,0,7);g.fillStyle=C.cy;g.fill();
     label(g,Math.round(price).toLocaleString(),w-padR+6,Y(price)+3,C.ink);
     if(hv&&hv.x<w-padR){const i=clamp(Math.round(hv.x/(w-padR)*(PX.length-1)),0,PX.length-1);vline(g,X(i),padT,h-padB,"rgba(233,239,246,.3)",[2,3]);g.beginPath();g.arc(X(i),Y(PX[i]),3.5,0,7);g.fillStyle=C.ink;g.fill();
@@ -740,7 +770,7 @@ function drawPrice(t){const c0=cv("cPrice");if(!c0)return;const [g,w,h]=c0,cs=F.
   if(big)for(let ts=Math.ceil(t0/21600)*21600;ts<t1;ts+=21600){const d=new Date(ts*1000);if(Math.abs(X(ts)-X(nowTs))>34)label(g,p2(d.getHours())+":00",X(ts),h-tape-3,C.dim,"center")}
   const cw=Math.max(1.5,(X(t0+tf)-X(t0))*.62),hc=hv&&hv.x<w-padR?show.find(c=>iX(hv.x)>=c[0]&&iX(hv.x)<c[0]+tf):null;
   show.forEach((c,i)=>{const x=X(c[0]+tf/2),upc=c[4]>=c[1],col=upc?C.up:C.down,last=forming&&i===show.length-1;g.strokeStyle=col;g.fillStyle=col;
-    if(c===hc){g.shadowColor=col;g.shadowBlur=10}g.beginPath();g.moveTo(x,Y(c[2]));g.lineTo(x,Y(c[3]));g.stroke();
+    g.beginPath();g.moveTo(x,Y(c[2]));g.lineTo(x,Y(c[3]));g.stroke();
     const y1=Y(Math.max(c[1],c[4])),y2=Y(Math.min(c[1],c[4]));block(g,x-cw/2,y1,cw,Math.max(1,y2-y1),Math.min(3,cw*.34),col);g.shadowBlur=0;
     if(last){const fl=1-since("px")/.7;if(fl>0){g.fillStyle=`rgba(255,255,255,${(fl*.55).toFixed(2)})`;g.fillRect(x-cw/2,y1,cw,Math.max(1,y2-y1))}}});
   const hiC=show.reduce((a,c)=>c[2]>a[2]?c:a),loC=show.reduce((a,c)=>c[3]<a[3]?c:a);PXI={hi:hiC[2],lo:loC[3],hiT:hiC[0],loT:loC[0]};
@@ -838,7 +868,7 @@ function drawRidge(t){const c0=cv("cRidge");if(!c0)return;const [g,w,h]=c0;if(!R
     g.beginPath();g.moveTo(pts[0][0],y);pts.forEach(p=>g.lineTo(p[0],p[1]));g.lineTo(pts[pts.length-1][0],y);g.closePath();g.fillStyle=gr;g.fill();
     const fade=.45+.55*s*s/(1)*(1/1),glow=strong?1:.8;
     [[0,xb,C.down],[xb,w,C.up]].forEach(([a,b,col])=>{g.save();g.beginPath();g.rect(a,0,b-a,h);g.clip();g.beginPath();pts.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));
-      g.strokeStyle=col;g.globalAlpha=(ak>=0&&!strong?.35:1)*fade*glow;g.lineWidth=(strong?2.4:1.5)*Math.max(.6,s);g.shadowColor=col;g.shadowBlur=(strong?12:5)*glow;g.stroke();g.restore()});
+      g.strokeStyle=col;g.globalAlpha=(ak>=0&&!strong?.35:1)*fade*glow;g.lineWidth=(strong?2.4:1.5)*Math.max(.6,s);g.stroke();g.restore()});
     if(K<=14||k%2===0||strong)label(g,"+"+hs[k]+"h",pts[0][0]-4,y+3,strong?C.cy:C.dim,"right",Math.max(8,10*s))}
   g.beginPath();peaks.forEach((p,k)=>k?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.strokeStyle="rgba(233,239,246,.85)";g.lineWidth=1.3;g.setLineDash([4,3]);g.stroke();g.setLineDash([]);peaks.forEach((p,k)=>sphere(g,p[0],p[1],2.6*Math.max(.6,S_(k)),"#e9eff6"));
   if(TRK){const kk=Math.max(0,hs.findIndex(v=>v>=TRK.hour)),dn=Rd.dens[hs[kk]-1],pr=clamp(S.price,Rd.lo,Rd.hi),gi=(pr-Rd.lo)/(Rd.hi-Rd.lo)*(Rd.grid.length-1),i0=Math.floor(gi),dv=dn[i0]+(dn[Math.min(i0+1,dn.length-1)]-dn[i0])*(gi-i0);
@@ -1005,13 +1035,13 @@ function drawGraph(t,dt){const c0=cv("cGraph");if(!c0)return;const [g,w,h]=c0;if
     Gs.edges.forEach(e=>{const A=N[e[0]],B=N[e[1]];if(!A||!B)return;const on=e===he||(focus&&(e[0]===focus||e[1]===focus));g.strokeStyle=on?"rgba(53,200,255,.9)":focus||he?"rgba(111,127,147,.12)":"rgba(111,127,147,.3)";g.lineWidth=on?1.6:1;g.setLineDash(e[2]?[3,5]:[]);g.beginPath();g.moveTo(A.x,A.y);g.lineTo(B.x,B.y);g.stroke()});
     g.setLineDash([]);g.lineWidth=1;
     Gs.parts=Gs.parts.filter(p=>{p.p+=p.v*dt;const A=N[p.a],B=N[p.b];if(!A||!B||p.p>=1)return false;if(p.p<0)return true;
-      const x=A.x+(B.x-A.x)*p.p,y=A.y+(B.y-A.y)*p.p;g.beginPath();g.arc(x,y,2,0,7);g.fillStyle=p.col;g.shadowColor=p.col;g.shadowBlur=8;g.fill();g.shadowBlur=0;return true});
+      const x=A.x+(B.x-A.x)*p.p,y=A.y+(B.y-A.y)*p.p;g.beginPath();g.arc(x,y,2,0,7);g.fillStyle=p.col;g.fill();g.shadowBlur=0;return true});
     if(Gs.parts.length>500)Gs.parts.splice(0,Gs.parts.length-500);
     const M=N.model,se=sel();if(M&&D&&D.source==="model"){const sp=Math.max(...D.finals.map(Math.abs))||1;D.finals.forEach((v,i)=>{const a=i*2.39996,rr=M.r+7+Math.abs(v)/sp*16+M.burst*8,on=!se||se.set.has(i);g.beginPath();g.arc(M.x+Math.cos(a)*rr,M.y+Math.sin(a)*rr*.8,on&&se?2.6:1.6,0,7);g.fillStyle=v>0?C.up:C.down;g.globalAlpha*=on?.8:.15;g.fill();g.globalAlpha=z>0&&fn?1-z:1})}
     const Sc=N.score;if(Sc)(S.score||[]).slice(0,14).forEach((x,i)=>{const calls=(S.open_calls||[]).filter(c=>c.source===x.source),a=i*.449,rr=Sc.r+7+(i%3)*6+Sc.hit*4;
       const col=!calls.length?C.dim:calls.some(c=>c.kind==="touch_above")&&!calls.some(c=>c.kind==="touch_below")?C.up:calls.some(c=>c.kind==="touch_below")&&!calls.some(c=>c.kind==="touch_above")?C.down:C.warn;
       g.beginPath();g.arc(Sc.x+Math.cos(a)*rr,Sc.y+Math.sin(a)*rr*.75,1+x.weight*2.4,0,7);g.fillStyle=col;g.fill()});
-    for(const k in N){const n=N[k],on=n.id===focus,R=n.r+n.hit*2.5+(on?2:0);g.beginPath();g.ellipse(n.x+2,n.y+R+4,R*.9,R*.26,0,0,7);g.fillStyle="rgba(0,0,0,.5)";g.fill();{const gr=g.createRadialGradient(n.x-R*.35,n.y-R*.42,R*.08,n.x,n.y,R);gr.addColorStop(0,"#2a3d55");gr.addColorStop(.6,"#0d141d");gr.addColorStop(1,"#04070b");g.beginPath();g.arc(n.x,n.y,R,0,7);g.fillStyle=gr;g.fill()}g.strokeStyle=n.col;g.lineWidth=n.hub?2.2:1.6;g.setLineDash(n.shadow?[3,3]:[]);g.shadowColor=n.col;g.shadowBlur=8+n.flash*26+n.hit*10+(on?12:0);g.stroke();g.shadowBlur=0;g.setLineDash([]);
+    for(const k in N){const n=N[k],on=n.id===focus,R=n.r+n.hit*2.5+(on?2:0);g.beginPath();g.ellipse(n.x+2,n.y+R+4,R*.9,R*.26,0,0,7);g.fillStyle="rgba(0,0,0,.5)";g.fill();{const gr=g.createRadialGradient(n.x-R*.35,n.y-R*.42,R*.08,n.x,n.y,R);gr.addColorStop(0,"#2a3d55");gr.addColorStop(.6,"#0d141d");gr.addColorStop(1,"#04070b");g.beginPath();g.arc(n.x,n.y,R,0,7);g.fillStyle=gr;g.fill()}g.strokeStyle=n.col;g.lineWidth=n.hub?2.2:1.6;g.setLineDash(n.shadow?[3,3]:[]);g.stroke();g.shadowBlur=0;g.setLineDash([]);
       if(n.flash>.03){g.beginPath();g.arc(n.x,n.y,R+4+(1-n.flash)*16,0,7);g.strokeStyle=n.col;g.globalAlpha*=n.flash*.7;g.stroke();g.globalAlpha=z>0&&fn?1-z:1}
       const st=n.steps||[];if(st.length){const m=st.length;st.forEach((q,i)=>{const a=-1.5708+i/m*6.2832,rr=R*.58;sphere(g,n.x+Math.cos(a)*rr,n.y+Math.sin(a)*rr,q.st==="bad"||q.st==="warn"?2.8:2,STC[q.st]||C.dim)});g.beginPath();g.arc(n.x,n.y,1.6+n.hit*2,0,7);g.fillStyle=n.col;g.fill()}
       else{g.beginPath();g.arc(n.x,n.y,Math.max(1.5,n.r*.4),0,7);g.fillStyle=n.col;g.fill()}
@@ -1026,15 +1056,60 @@ function drawInner(g,w,h,t,dt,a,hv,ck){const id=Gs.focus||Gs.last,d=inner(id);if
   side.forEach((q,i)=>P.push([w-pad-i*90,h-46]));const pts=steps.concat(side);
   label(g,"‹ signal graph",12,18,C.cy,"left",11,1);label(g,d.title+(d.shadow?"  ·  shadow":""),128,18,C.ink,"left",11.5,1);label(g,d.note,w/2,h-8,C.dim,"center",10.5);
   for(let i=0;i<n-1;i++){g.strokeStyle="rgba(111,127,147,.4)";g.lineWidth=1;g.setLineDash(d.shadow&&i===n-2?[3,5]:[]);g.beginPath();g.moveTo(P[i][0],P[i][1]);g.lineTo(P[i+1][0],P[i+1][1]);g.stroke()}g.setLineDash([]);
-  Gs.ip=Gs.ip.filter(p=>{p.u+=dt*2.2;if(p.u>=p.end)return false;if(p.u<0)return true;const i=Math.floor(p.u),f=p.u-i,A=P[i],B=P[Math.min(n-1,i+1)];g.beginPath();g.arc(A[0]+(B[0]-A[0])*f,A[1]+(B[1]-A[1])*f,2.6,0,7);g.fillStyle=p.col;g.shadowColor=p.col;g.shadowBlur=9;g.fill();g.shadowBlur=0;return true});
+  Gs.ip=Gs.ip.filter(p=>{p.u+=dt*2.2;if(p.u>=p.end)return false;if(p.u<0)return true;const i=Math.floor(p.u),f=p.u-i,A=P[i],B=P[Math.min(n-1,i+1)];g.beginPath();g.arc(A[0]+(B[0]-A[0])*f,A[1]+(B[1]-A[1])*f,2.6,0,7);g.fillStyle=p.col;g.fill();g.shadowBlur=0;return true});
   let hs=-1;if(hv)P.forEach((p,i)=>{if(Math.hypot(p[0]-hv.x,p[1]-hv.y)<24)hs=i});
-  pts.forEach((q,i)=>{const p=P[i],c=STC[q.st]||C.dim,on=i===hs;g.beginPath();g.ellipse(p[0]+2,p[1]+19,13,4,0,0,7);g.fillStyle="rgba(0,0,0,.5)";g.fill();{const R=on?17:14,gr=g.createRadialGradient(p[0]-R*.35,p[1]-R*.42,R*.08,p[0],p[1],R);gr.addColorStop(0,"#2a3d55");gr.addColorStop(.6,"#0d141d");gr.addColorStop(1,"#04070b");g.beginPath();g.arc(p[0],p[1],R,0,7);g.fillStyle=gr;g.fill()}g.strokeStyle=c;g.lineWidth=on?2.4:1.7;g.shadowColor=c;g.shadowBlur=on?16:8;g.stroke();g.shadowBlur=0;sphere(g,p[0],p[1],q.st==="idle"?2.5:4.5,c,6);
+  pts.forEach((q,i)=>{const p=P[i],c=STC[q.st]||C.dim,on=i===hs;g.beginPath();g.ellipse(p[0]+2,p[1]+19,13,4,0,0,7);g.fillStyle="rgba(0,0,0,.5)";g.fill();{const R=on?17:14,gr=g.createRadialGradient(p[0]-R*.35,p[1]-R*.42,R*.08,p[0],p[1],R);gr.addColorStop(0,"#2a3d55");gr.addColorStop(.6,"#0d141d");gr.addColorStop(1,"#04070b");g.beginPath();g.arc(p[0],p[1],R,0,7);g.fillStyle=gr;g.fill()}g.strokeStyle=c;g.lineWidth=on?2.4:1.7;g.stroke();g.shadowBlur=0;sphere(g,p[0],p[1],q.st==="idle"?2.5:4.5,c,6);
     label(g,q.label,p[0],p[1]-22,on?C.ink:"#b9c6d6","center",10.5,1);label(g,String(q.val),p[0],p[1]+30,c,"center",10,1)});
   $("cGraph").style.cursor=hs>=0||(hv&&hv.y<28&&hv.x<100)?"pointer":"default";
   if(hs>=0){const q=pts[hs];tipHTML=`<b>${esc(q.label)}</b>`+trow("right now",esc(q.val))+`<i>${esc(q.rule)}</i>`}
   if(ck&&!gSkip){if(hs>=0){const r=$("cGraph").getBoundingClientRect();openZoom("i:"+id+":"+hs,{left:r.left+P[hs][0]-14,top:r.top+P[hs][1]-14,width:28,height:28},ck.cx,ck.cy)}else Gs.focus=null}
   g.restore()}
 
+
+/* ================= is it learning? =================
+   "The lab's picks" are the 10 variants it would keep (chosen only on the history it trains on). The line is how those picks did on history
+   they never saw. Progress is that line climbing above breakeven and above your live settings, and staying there. */
+let PROG=null;
+function progress(){if(PROG)return PROG;const p=LAB&&LAB.progress,Ld=LAB&&LAB.land;if(!p||!p.hist.length)return null;const h=p.hist,last=h[h.length-1],avg=a=>a.reduce((x,y)=>x+y,0)/a.length,k=Math.min(8,Math.ceil(h.length/2));
+  const first=avg(h.slice(0,k).map(r=>r[1])),recent=avg(h.slice(-k).map(r=>r[1])),need=p.need,fc=S.fc||{},best=h.reduce((a,r)=>r[1]>a[1]?r:a);
+  let rg=-1;if(Ld)for(let c=0;c<Ld.n.length;c++)if(Ld.n[c]&&Ld.te[c]>=.05&&Ld.tr[c]>0&&(rg<0||Ld.n[c]>Ld.n[rg]))rg=c;        // the most-tried region that is clearly ahead: 5 cents a slice or more on unseen history, and ahead on trained history too
+  const live=last[4],gap=recent-first,enough=h.length>=16,span=`${ud(first)} a slice over its first ${k} rounds, ${ud(recent)} over its last ${k}`;
+  const goals=[
+    {k:"tries",t:"Enough tries to judge anything",val:Ld?Ld.tested.toLocaleString()+" of 1,000 settings":"–",p:Ld?Ld.tested/1000:0,sub:Ld&&Ld.tested>=1000?"Reached. The search has covered "+Ld.n.filter(n=>n).length+" of "+Ld.n.length+" regions of the map.":"The lab tries 38 new settings a round. Before about 1,000 the results are mostly noise.",
+      why:"A search that has only tried a few hundred settings has not really looked yet. This one only says the lab has done enough work for the other lines to mean something."},
+    {k:"live",t:"Its picks beat your live settings",val:p.live+" of "+need+" rounds in a row",p:p.live/need,sub:live==null?"Waiting for the next round.":last[1]>live?"Right now they do: "+ud(last[1])+" against "+ud(live)+" a slice, on unseen history. It has to hold for "+need+" rounds.":"Right now they do not: "+ud(last[1])+" against "+ud(live)+" a slice, on unseen history.",
+      why:"The 10 variants the lab would keep, measured on price history they were never tuned on, against the settings the bot runs today measured the same way. Holding for "+need+" rounds in a row rules out one lucky round. Longest run so far: "+p.top_live+"."},
+    {k:"pos",t:"Its picks make money on unseen history",val:p.pos+" of "+need+" rounds in a row",p:p.pos/need,sub:last[1]>0?"Right now they do: "+ud(last[1])+" a slice. It has to hold for "+need+" rounds.":"Right now they lose "+ud(last[1]).slice(1)+" a slice. This is the line to watch on the chart.",
+      why:"The hardest and most important one. Beating the live settings only means losing less. This asks that the picks finish above breakeven, after fees, on history they never saw, "+need+" rounds running. Longest run so far: "+p.top_pos+"."},
+    {k:"region",t:"A well-tested region of the map is ahead",val:rg>=0?Ld.n[rg]+" of 10 tries":"none ahead yet",p:rg>=0?Ld.n[rg]/10:0,sub:rg>=0?(r=>"First bid "+pc2(r[0])+" to "+pc2(r[1])+" below, selling "+pc2(r[2])+" to "+pc2(r[3])+" above: "+ud(Ld.te[rg])+" a slice over "+Ld.n[rg]+" tries.")(landRange(Ld,rg)):"No region of the 3D map averages 5 cents a slice or more on unseen history.",
+      why:"One variant can be lucky. Ten or more different variants with similar settings all averaging a profit on unseen history is much harder to get by luck. This looks for a green column on the 3D map that is also wide, and it must be ahead by at least 5 cents a slice so a rounding error does not count. With "+Ld.n.filter(n=>n>=3).length+" regions in play, one or two will look slightly ahead by chance alone."},
+    {k:"kronos",t:"Forecast model calls direction better than a coin",val:fc.graded?fc.hits+" right of "+fc.graded+" graded":"none graded yet",p:Math.min(1,(fc.graded||0)/30)*(fc.graded?Math.min(1,(fc.hits/fc.graded)/(2/3)):0),done:fc.graded>=30&&fc.hits/fc.graded>=2/3,
+      sub:fc.graded?(fc.graded<30?"Too few to tell. A coin would get about "+Math.round(fc.graded/2)+" of "+fc.graded+". It needs 30 graded forecasts.":Math.round(fc.hits/fc.graded*100)+"% right. A coin gets 50%. The bar is 20 of 30."):"Each forecast is graded against the real price when its time is up.",
+      why:"Each forecast says whether most of its 48 futures end higher or lower; it is graded right or wrong when that time arrives. A coin flip is right half the time. Getting 20 or more right out of 30 would happen by luck only about 1 time in 20. The model is shadow only and never trades."}];
+  goals.forEach(g=>{g.p=clamp(g.p,0,1);if(g.done==null)g.done=g.p>=1});
+  const done=goals.filter(g=>g.done).length,verdict=p.pos>=need?["Yes","the lab's picks have made money on history they never saw for "+p.pos+" rounds in a row"]:last[1]>0?["Maybe","the lab's picks are above breakeven on unseen history right now, but it has only held for "+p.pos+" round"+(p.pos===1?"":"s")+" and "+need+" are needed"]
+    :enough&&gap>.02?["Some","the lab's picks lose less on unseen history than when it started ("+span+") but they are still below breakeven"]:enough&&gap<-.02?["No","the lab's picks are doing worse on unseen history than when it started ("+span+")"]:["Not yet",enough?"the lab's picks are about where they started on unseen history ("+span+")":"only "+h.length+" round"+(h.length>1?"s":"")+" recorded so far, too few to see a direction"];
+  return PROG={p,h,last,first,recent,k,need,live,goals,done,verdict,best,enough}}
+function renderGoals(){PROG=null;const q=progress();if(!q){setH("goals",`<p class="note">${esc((LAB&&LAB.detail)||"Progress appears once the lab has run a round.")}</p>`);setT("n-prog","");return}
+  setT("n-prog",q.verdict[0].toLowerCase()+" · "+q.done+" of "+q.goals.length+" milestones reached");
+  setH("goals",`<p class="verd"><b>Is it learning? ${q.verdict[0]}:</b> ${esc(q.verdict[1])}.</p>`+q.goals.map(g=>{const key="g:"+g.k;DET[key]={t:(g.done?"Reached · ":"Not reached yet · ")+g.t,f:()=>kv([["where it stands",esc(g.val)],["progress toward it",Math.round(g.p*100)+"%"]],g.why+" Even every milestone reached would be evidence, not proof: past prices do not have to repeat. Nothing here trades or changes the live strategy.")};
+    return `<div class="goal x${g.done?" done":""}${isX(key)?" on":""}" data-x="${key}" data-tip="${esc(g.why)} Click to expand."><div class="row"><span><i class="tk">${g.done?"✓":""}</i><b>${g.t}</b></span><span class="dim">${esc(g.val)}</span></div><div class="bar"><i style="width:${(g.p*100).toFixed(1)}%"></i></div><div class="gs">${esc(g.sub)}</div></div>`}).join(""))}
+function drawProg(t){const c0=cv("cProg");if(!c0)return;const [g,w,h]=c0,q=progress();if(!q)return emptyMsg(g,w,h,LAB&&LAB.state==="idle"?"The lab needs real prices":"Progress appears once the lab has run a round");
+  const H=q.h,n=H.length,padL=50,padR=132,padT=16,padB=20,vals=[0,.08];H.forEach(r=>{vals.push(r[1],r[2]);if(r[4]!=null)vals.push(r[4])});
+  const lo=Math.min(...vals),hi=Math.max(...vals),A=v=>Math.asinh(v/.08),Al=A(lo)-.12,Ah=A(hi)+.25,X=i=>padL+(n>1?i/(n-1):.5)*(w-padL-padR),Y=v=>padT+(Ah-A(v))/(Ah-Al)*(h-padT-padB),y0=Y(0),hv=hov("cProg");
+  g.fillStyle="rgba(0,230,118,.07)";g.fillRect(padL,padT,w-padL-padR,y0-padT);label(g,"GOAL · up here the lab's picks make money on prices they never saw",padL+6,padT+11,C.up);                    // what progress would look like
+  if(y0-padT>44)label(g,"progress = the white line climbing into this zone and staying "+q.need+" rounds",padL+6,padT+24,"rgba(0,230,118,.7)");
+  let ly=-99;[-5,-2,-1,-.5,-.2,-.1,0,.1,.2,.5,1].filter(v=>v>=lo-.01&&v<=hi+.01).reverse().forEach(v=>{const y=Math.round(Y(v))+.5;if(Math.abs(y-ly)<16&&v!==0)return;ly=y;g.strokeStyle=v===0?C.up:C.line;g.setLineDash(v===0?[5,4]:[]);g.lineWidth=1;g.beginPath();g.moveTo(padL,y);g.lineTo(w-padR,y);g.stroke();label(g,v===0?"$0":ud(v).replace(/0$/,""),padL-6,y+3,v===0?C.up:C.dim,"right")});g.setLineDash([]);
+  const line=(ix,col,lw,dash)=>{g.beginPath();let on=false;H.forEach((r,i)=>{if(r[ix]==null){on=false;return}on?g.lineTo(X(i),Y(r[ix])):g.moveTo(X(i),Y(r[ix]));on=true});g.strokeStyle=col;g.lineWidth=lw;g.setLineDash(dash||[]);g.stroke();g.setLineDash([])};
+  line(2,"rgba(159,176,195,.55)",1,[2,3]);line(4,C.warn,1.3,[6,4]);line(1,C.ink,2.2);
+  const ex=X(n-1),L=q.last,ey=Y(L[1]),tags=[[Y(L[1]),"lab's picks "+ud(L[1]),C.ink],[Y(L[2]),"if tuned-on "+ud(L[2]),"#9fb0c3"]];if(L[4]!=null)tags.push([Y(L[4]),"live now "+ud(L[4]),C.warn]);
+  tags.sort((a,b)=>a[0]-b[0]);for(let i=1;i<tags.length;i++)if(tags[i][0]-tags[i-1][0]<15)tags[i][0]=tags[i-1][0]+15;tags.forEach(q2=>tag(g,q2[1],ex+8,clamp(q2[0],padT+10,h-padB)+4,q2[2]));
+  ringEv(g,ex,ey,"gen",1.6,4,18,L[1]>0?C.up:C.ink);sphere(g,ex,ey,4,L[1]>0?C.up:"#e9eff6");
+  if(L[1]<0&&Math.abs(ey-y0)>26){const x=ex-12;g.strokeStyle="rgba(0,230,118,.8)";g.lineWidth=1;g.beginPath();g.moveTo(x,ey-7);g.lineTo(x,y0+3);g.moveTo(x-4,y0+9);g.lineTo(x,y0+3);g.lineTo(x+4,y0+9);g.stroke();label(g,"still "+ud(-L[1]).slice(1)+" a slice short",x-6,(ey+y0)/2+3,C.up,"right")}     // the distance left to go
+  label(g,"round "+H[0][0],X(0),h-5,C.dim,n>1?"left":"center");if(n>1)label(g,"round "+L[0],X(n-1),h-5,C.ink,"right");if(q.enough&&w>560)label(g,"started near "+ud(q.first),X(0)+4,clamp(Y(q.first)-8,padT+34,h-padB-4),C.dim);
+  if(hv&&hv.x>=padL-4&&hv.x<=w-padR+4){const i=clamp(Math.round((hv.x-padL)/(w-padL-padR)*(n-1)),0,n-1),r=H[i];vline(g,X(i),padT,h-padB,"rgba(233,239,246,.35)",[2,3]);sphere(g,X(i),Y(r[1]),3.5,"#e9eff6");
+    tipHTML=`<b>Round ${r[0]}</b>`+trow("the lab's 10 picks, on unseen history",`<span class="${sign(r[1])}">${ud(r[1])}</span> a slice`)+trow("the same picks, on history they were tuned on",`<span class="${sign(r[2])}">${ud(r[2])}</span>`)+trow("how much of that was flattery",r[2]>r[1]?ud(r[2]-r[1]).slice(1)+" a slice":"none this round")+trow("its single top pick, on unseen history",`<span class="${sign(r[3])}">${ud(r[3])}</span>`)+(r[4]!=null?trow("your live settings, on unseen history",`<span class="${sign(r[4])}">${ud(r[4])}</span>`):"")+trow("variants ahead on unseen history",r[5]+" of "+LAB.pop)+
+      `<i>White: what counts. The lab picks its 10 best on history it trains on, then they are checked on history they never saw. Dotted grey: how the same picks looked on the history they were tuned on, which always flatters. Amber: the settings the bot runs today. Green zone: making money.</i>`}}
 
 /* ================= what the lab has learned, in three dimensions =================
    Floor: two settings (how far below the price the first bid rests, and how far above the fill it sells).
@@ -1103,12 +1178,12 @@ function drawLand(t,dt){const c0=cv("cLand");if(!c0)return;const [g,w,h]=c0,Ld=L
     if(!hit){const q=cells.find(q=>inPoly(hv.x,hv.y,sq(q.X0,q.Z0,cw/2,cz/2,0)));if(q)hit={q}}}
   const here=c=>Ld.pop.filter(p=>landCell(Ld,p[1],p[2])===c).sort((a,b)=>b[3]-a[3]);
   if(hit&&hit.v){const p=hit.v.p;g.beginPath();g.arc(hit.v.s[0],hit.v.s[1],hit.v.r+3,0,7);g.strokeStyle=C.cy;g.lineWidth=1.5;g.stroke();g.lineWidth=1;
-    tipHTML=`<b>Variant #${p[0]}${p[0]===best?" (best now)":""}</b>`+trow("first bid rests",pc2(p[1])+" below the price")+trow("sells",pc2(p[2])+" above each fill")+trow("avg per slice, trained on",`<span class="${sign(p[4])}">${ud(p[4])}</span>`)+trow("avg per slice, unseen history (its height)",`<span class="${sign(p[3])}">${ud(p[3])}</span>`)+trow(p[5]?"kept and re-tested":"new this round",p[5]?p[5]+" rounds":"just dropped in")+`<i>Click to see every trade path it took. Test only: it never trades.</i>`}
+    tipHTML=`<b>Variant #${p[0]}${p[0]===best?" (best now)":""}</b>`+trow("first bid rests",pc2(p[1])+" below the price")+trow("sells",pc2(p[2])+" above each fill")+trow("avg per slice, trained on",`<span class="${sign(p[4])}">${ud(p[4])}</span>`)+trow("avg per slice, unseen history (its height)",`<span class="${sign(p[3])}">${ud(p[3])}</span>`)+trow(p[5]?"kept and re-tested":"new this round",p[5]?p[5]+" rounds":"just dropped in")+`<i>Click to expand everything known about it. Test only: it never trades.</i>`}
   else if(hit){const q=hit.q,r=landRange(Ld,q.c),hs=here(q.c),lv=landCell(Ld,Ld.live[0],Ld.live[1])===q.c;poly(sq(q.X0,q.Z0,cw/2,cz/2,0),null,C.cy);if(q.n)poly(sq(q.X0,q.Z0,q.a,q.b,q.hy),null,C.cy);
     tipHTML=`<b>First bid ${pc2(r[0])} to ${pc2(r[1])} below the price, selling ${pc2(r[2])} to ${pc2(r[3])} above the fill</b>`+trow("variants tried here so far",q.n?q.n:"none yet")+(q.n?trow("their average per slice, trained on",`<span class="${sign(Ld.tr[q.c])}">${ud(Ld.tr[q.c])}</span>`)+trow("same, on unseen history (the height)",`<span class="${sign(q.v)}">${ud(q.v)}</span>`):"")+trow("alive here this round",hs.length?hs.length+", best #"+hs[0][0]+" at "+ud(hs[0][3]):"none")+(lv?trow("your live settings","sit in this region"):"")+
-      `<i>${q.n?(q.n<3?"Only "+q.n+" tr"+(q.n>1?"ies":"y")+" here, so this could easily be luck. ":"")+"The taller the column, the better the variants tried here did on history the lab never trained on. Green and through the blue sheet: they made money. Red and under it: they lost. Grey and level with it: the bids were too far away to fill, so nothing was won or lost. A wide column has been tried many times.":"Nothing has been tried here yet, so the map is empty."}${hs.length?" Click to follow the best variant here.":""}</i>`}
-  $("cLand").style.cursor=hit&&(hit.v||here(hit.q.c).length)?"pointer":"grab";
-  if(ck&&!landSkip&&hit){const id=hit.v?hit.v.p[0]:(here(hit.q.c)[0]||[])[0];if(id!=null)setFocusV(id===best?null:id)}}
+      `<i>${q.n?(q.n<3?"Only "+q.n+" tr"+(q.n>1?"ies":"y")+" here, so this could easily be luck. ":"")+"The taller the column, the better the variants tried here did on history the lab never trained on. Green and through the blue sheet: they made money. Red and under it: they lost. Grey and level with it: the bids were too far away to fill, so nothing was won or lost. A wide column has been tried many times.":"Nothing has been tried here yet, so the map is empty."} Click to expand this region.</i>`}
+  $("cLand").style.cursor=hit?"pointer":"grab";
+  if(ck&&!landSkip&&hit){if(hit.v)canvasZoom("cLand","lv:"+hit.v.p[0],hit.v.s[0],hit.v.s[1],hit.v.r+3,ck);else{const q=hit.q,t0=P(q.X0,q.n?q.hy:0,q.Z0);canvasZoom("cLand","lc:"+q.c,t0[0],t0[1],Math.max(8,q.a*SC),ck)}}}
 (()=>{const c=$("cLand");let dr=null;c.style.touchAction="pan-y";
   c.addEventListener("pointerdown",e=>{dr={x:e.clientX,y:e.clientY,yaw:LD.yaw,pit:LD.pit,moved:false};c.setPointerCapture(e.pointerId)});
   c.addEventListener("pointermove",e=>{if(!dr)return;const dx=e.clientX-dr.x,dy=e.clientY-dr.y;if(!dr.moved&&Math.hypot(dx,dy)<4)return;dr.moved=true;LD.yaw=dr.yaw+dx*.008;LD.pit=clamp(dr.pit+dy*.006,.2,1.25);HV=null;showTip("");kick()});
@@ -1117,7 +1192,7 @@ function drawLand(t,dt){const c0=cv("cLand");if(!c0)return;const [g,w,h]=c0,Ld=L
 /* ================= loop ================= */
 let lastT=0;
 function frame(ms){const t=ms/1000,dt=Math.min(.1,Math.max(0,t-lastT));lastT=t;RAFQ=false;CUR=NEXT;NEXT={sel:MH?MH.sel:null,hour:MH?MH.hour:null};tipHTML="";
-  if(S.ready&&!document.hidden){try{tweens(ms);drawBg(t,dt);LQ=quiet("acct");drawCurve(t);LQ=quiet("reg");drawReg(t);LQ=quiet("lat");drawLat(t);LQ=quiet("ridge");drawRidge(t);LQ=quiet("price");drawPrice(t);LQ=quiet("graph");drawGraph(t,dt);LQ=quiet("lab");drawLab(t,dt);LQ=quiet("paths");drawPaths(t);LQ=false;drawLand(t,dt);markHour()}catch(e){console.error(e)}}
+  if(S.ready&&!document.hidden){try{tweens(ms);drawBg(t,dt);LQ=quiet("acct");drawCurve(t);LQ=quiet("reg");drawReg(t);LQ=quiet("lat");drawLat(t);LQ=quiet("ridge");drawRidge(t);LQ=quiet("price");drawPrice(t);LQ=quiet("graph");drawGraph(t,dt);LQ=quiet("lab");drawLab(t,dt);LQ=quiet("paths");drawPaths(t);LQ=false;drawLand(t,dt);drawProg(t);markHour()}catch(e){console.error(e)}}
   CK=null;if(HV&&!BUSY)showTip(ZOOM?"":tipHTML);
   if(!RM)requestAnimationFrame(frame)}
 async function tick(){try{S=await (await fetch("/api/state")).json();
