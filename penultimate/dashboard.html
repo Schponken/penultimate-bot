@@ -111,6 +111,8 @@ textarea{resize:vertical;min-height:60px;font:12px var(--mono);width:100%;paddin
 .steps .d{flex:none;width:17px;height:17px;border-radius:50%;border:1.5px solid var(--dim);display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700}
 .steps .done .d{background:var(--up);border-color:var(--up);color:#02170b}
 .btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.drop{border:1.5px dashed #2c3d52;border-radius:6px;padding:16px;margin:8px 0;display:flex;gap:12px;align-items:center;justify-content:center;color:var(--dim);transition:border-color .15s,background .15s}
+.drop.over{border-color:var(--cy);background:rgba(53,200,255,.08);color:var(--ink)}
 p{margin:6px 0}.note{color:var(--dim);font-size:12px}a{color:var(--cy)}
 .chip{display:inline-block;border:1px solid var(--cy);color:var(--cy);border-radius:10px;padding:0 7px;font:10.5px var(--mono);cursor:pointer;margin-left:6px}
 #gDetail{position:absolute;right:10px;top:4px;width:250px;max-height:calc(100% - 14px);overflow:auto;background:rgba(13,19,27,.95);border:1px solid #27364a;border-radius:5px;padding:8px 10px;display:none}
@@ -153,6 +155,12 @@ function toast(m){const t=$("toast");t.textContent=m;t.style.opacity=1;setTimeou
 async function post(body){try{const r=await fetch("/api/cmd",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...body,token:TOKEN})});const j=await r.json();toast(j.message||(j.ok?"done":"failed"));return j.ok}catch(e){toast("could not reach the bot");return false}}
 function stopAll(){if(confirm("Cancel all orders, close every position and halt?"))post({cmd:"stop_all"})}
 function goLive(){const c=prompt("This places real orders with real money, inside the limits in limits.yaml.\nType GO LIVE to confirm.");if(c)post({cmd:"mode",target:"live",confirm:c.trim()})}
+/* the key file goes straight from your disk to the bot on this machine; it is never shown on screen */
+function keyFile(f){if(!f)return;if(f.size>20000){toast("that does not look like a key file");return}f.text().then(t=>post({cmd:"keys",apiKey:t,secret:"",password:""})).then(ok=>{if(ok)setupDrawn=""})}
+addEventListener("change",e=>{if(e.target.id==="kf")keyFile(e.target.files[0])});
+addEventListener("dragover",e=>{e.preventDefault();const d=$("drop");if(d)d.classList.toggle("over",!!e.target.closest("#w-setup"))});
+addEventListener("dragleave",e=>{const d=$("drop");if(d&&!e.relatedTarget)d.classList.remove("over")});
+addEventListener("drop",e=>{e.preventDefault();const d=$("drop");if(d)d.classList.remove("over");if(d&&e.target.closest("#w-setup")&&e.dataTransfer.files.length)keyFile(e.dataTransfer.files[0])});
 function saveKeys(){post({cmd:"keys",apiKey:$("k1").value,secret:$("k2").value,password:""}).then(ok=>{if(ok){setupDrawn="";}})}
 const LS={get(k,d){try{const v=localStorage.getItem("pen."+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem("pen."+k,JSON.stringify(v))}catch(e){}}};
 function setH(id,html){const el=$(id);if(el&&el._h!==html){el._h=html;el.innerHTML=html}}
@@ -363,7 +371,8 @@ function render(){
       ${stp(funded,"US dollars deposited on the exchange. Trading starts by itself when they arrive")}
     </ul>
     ${s.keys_saved?`<div class="btns"><button onclick="post({cmd:'forget_keys'}).then(()=>setupDrawn='')">Remove saved keys</button></div>`:
-    `<p class="note">Create the key yourself at <a href="https://portal.cdp.coinbase.com/api-keys/secret" target="_blank" rel="noopener">portal.cdp.coinbase.com/api-keys/secret</a>: allow View and Trade only, leave Transfer and Receive off, and set the signature algorithm to <b>ECDSA</b> (Ed25519 does not work for trading). Then paste it here yourself. Easiest: click Download API key and paste that whole file into the first box, leaving the second empty.</p>
+    `<p class="note">Create the key yourself at <a href="https://portal.cdp.coinbase.com/api-keys/secret" target="_blank" rel="noopener">portal.cdp.coinbase.com/api-keys/secret</a>: allow View and Trade only, leave Transfer and Receive off, and set the signature algorithm to <b>ECDSA</b> (Ed25519 does not work for trading). Then click Download API key and give the bot that file yourself: drop it on the box below, or paste its contents into the first text box.</p>
+    <div class="drop" id="drop">Drop the downloaded key file (cdp_api_key.json) here<button onclick="$('kf').click()">or choose the file</button><input type="file" id="kf" accept=".json,application/json,.txt" hidden></div>
     <textarea id="k1" placeholder="Whole key file, or the API key name" autocomplete="off" spellcheck="false"></textarea><textarea id="k2" placeholder="Private key / secret (leave empty if you pasted the whole file above)" autocomplete="off" spellcheck="false"></textarea><div class="btns"><button onclick="saveKeys()">Save keys on this machine</button></div>`}
     <div class="btns" style="margin-top:14px">
       <button onclick="post({cmd:'mode',target:'practice'})">Practice market (fake prices, fake money)</button>
