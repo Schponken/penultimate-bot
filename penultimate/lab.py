@@ -7,10 +7,13 @@ because the best of many tries always looks better on the data it was picked on 
 """
 from __future__ import annotations
 
+import json
 import math
+import os
 import random
 import threading
 import time
+from pathlib import Path
 from typing import List, Optional, Tuple
 
 EP_HOURS = 36           # length of one test episode
@@ -164,6 +167,41 @@ class Lab:
         self.state, self.detail_text = ("off", "") if not self.enabled else ("waiting", "waiting for price history")
         self.lock = threading.Lock()
         self._stop = threading.Event()
+        self._rescore = False
+        d_ = getattr(hub, "data_dir", None)
+        self.file = Path(d_) / "lab.json" if d_ and self.enabled else None
+        self._load()
+
+    # ---- what the lab has learned survives a restart ---------------------------
+    def _load(self) -> None:
+        try:
+            s = json.loads(self.file.read_text())
+            cells, keys = LAND_N * LAND_N, set(random_gene(random.Random(0)))
+            land, pop = s["land"], s["pop"]
+            ok = (s["v"] == 1 and all(len(land[k]) == cells for k in ("n", "tr", "te")) and len(pop) == POP
+                  and all(set(v["gene"]) == keys and all(isinstance(x, (int, float)) for x in v["gene"].values()) for v in pop))
+            if not ok:
+                return
+            self.land = {"n": [int(x) for x in land["n"]], "tr": [float(x) for x in land["tr"]], "te": [float(x) for x in land["te"]]}
+            self.tested, self.gen, self._next_id = int(s["tested"]), int(s["gen"]), int(s["next"])
+            self.pop = [{"id": int(v["id"]), "parent": int(v["parent"]), "gene": v["gene"], "age": int(v["age"])} for v in pop]
+            self.gens = list(s.get("gens") or [])[-KEEP_GENS:]
+            self.genes = {int(k): g for k, g in (s.get("genes") or {}).items()}
+            self._rescore = True
+        except Exception:
+            pass                                                    # no saved state, or one this version cannot read: start fresh
+
+    def _save(self) -> None:
+        if not self.file:
+            return
+        try:
+            tmp = self.file.with_name("lab.json.tmp")
+            tmp.write_text(json.dumps({"v": 1, "gen": self.gen, "next": self._next_id, "tested": self.tested, "land": self.land,
+                                       "pop": [{k: v[k] for k in ("id", "parent", "gene", "age")} for v in self.pop],
+                                       "gens": self.gens, "genes": self.genes}))
+            os.replace(tmp, self.file)
+        except OSError:
+            pass
 
     def start(self) -> None:
         if self.enabled:
@@ -198,6 +236,10 @@ class Lab:
             self.state, self.detail_text = "waiting", "waiting for price history"
             return
         rng = self.rng
+        if self._rescore:                        # a population loaded from disk: score it on today's history first
+            for v in self.pop:
+                v.update(score(v["gene"], self.eps, self.fees))
+            self._rescore = False
         if not self.pop:
             new = [{"id": self._id(), "parent": 0, "gene": random_gene(rng), "age": 0} for _ in range(POP)]
         else:
@@ -233,6 +275,7 @@ class Lab:
             self.genes = {k: g for k, g in self.genes.items() if k in shown}
             self.state = "running"
             self.detail_text = f"round {self.gen}: {POP} variants on {len(self.eps)} slices of real history"
+        self._save()
 
     def _id(self) -> int:
         self._next_id += 1
@@ -243,16 +286,17 @@ class Lab:
         if since == self.gen and self.gen:                          # nothing new since the dashboard last asked
             return {"state": self.state, "detail": self.detail_text, "gen": self.gen, "unchanged": True}
         with self.lock:
-            best = max(self.pop, key=lambda v: v["fit"]) if self.pop else None
+            pop = [] if self._rescore else self.pop                 # loaded from disk and not yet scored on today's history
+            best = max(pop, key=lambda v: v["fit"]) if pop else None
             n_tr = sum(e["split"] == "train" for e in self.eps)
             race = {"t0": [e["t0"] for e in self.eps], "split": [e["split"] for e in self.eps],
-                    "v": [[v["id"], v["each"]] for v in self.pop], "live": self.live_score["each"] if self.live_score else []}
+                    "v": [[v["id"], v["each"]] for v in pop], "live": self.live_score["each"] if self.live_score else []}
             n = self.land["n"]
             land = {"nx": LAND_N, "ny": LAND_N, "x": LAND_X, "y": LAND_Y, "n": n, "tested": self.tested,
                     "tr": [round(a / c, 3) if c else None for a, c in zip(self.land["tr"], n)],
                     "te": [round(a / c, 3) if c else None for a, c in zip(self.land["te"], n)],
                     "pop": [[v["id"], round(plan(v["gene"])[0][0], 4), round(plan(v["gene"])[1], 4), round(v["test"], 3),
-                             round(v["train"], 3), v["age"]] for v in self.pop],
+                             round(v["train"], 3), v["age"]] for v in pop],
                     "live": [self.live_gene["levels"][0], self.live_gene["tp"],
                              round(self.live_score["test"], 3) if self.live_score else 0.0]}
             return {"state": self.state, "detail": self.detail_text, "gen": self.gen, "gens": self.gens, "race": race, "land": land,

@@ -87,3 +87,38 @@ def test_rounds_keep_the_best_and_report_every_trade_path():
     assert lab.variant("live")["levels"] == [0.03, 0.05, 0.08] and lab.variant(999999) is None
     assert d["id"] == view["best"] and len(view["race"]["v"]) == POP and len(view["race"]["v"][0][1]) == view["episodes"]
     assert abs(score(lab.live_gene, lab.eps, lab.fees)["train"] - view["live"]["train"]) < 1e-9
+
+
+def test_what_the_lab_learned_survives_a_restart(tmp_path):
+    import json
+    from penultimate.config import load_config, load_limits
+    from penultimate.lab import LAND_N, Lab
+
+    class Hub:
+        enabled = live_prices = True
+        data_dir = tmp_path
+        forecast = None
+        candles = []
+
+        def is_fresh(self, *a):
+            return False
+    hub = Hub()
+    rng, px, hist = random.Random(3), 70000.0, []
+    for i in range(320):
+        o = px
+        px *= 1 + rng.gauss(0, 0.006)
+        hist.append([1_700_000_000 + i * 3600, o, max(o, px) * 1.003, min(o, px) * 0.997, px, 1.0])
+    hub.history = hist
+    a = Lab(load_config(), hub, load_limits())
+    for _ in range(3):
+        a.step()
+    b = Lab(load_config(), hub, load_limits())                         # "restart": a new lab reading the same folder
+    assert (b.gen, b.tested, b.land) == (a.gen, a.tested, a.land) and [v["id"] for v in b.pop] == [v["id"] for v in a.pop]
+    assert b.view()["best"] is None and b.view()["land"]["tested"] == a.tested      # readable before its first round
+    b.step()
+    assert b.gen == 4 and b.tested > a.tested and len(b.gens) == 4 and b.view()["best"] is not None
+    (tmp_path / "lab.json").write_text(json.dumps({"v": 1, "land": {"n": [1]}, "pop": []}))    # a damaged file is ignored
+    c = Lab(load_config(), hub, load_limits())
+    assert c.gen == 0 and c.land["n"] == [0] * (LAND_N * LAND_N)
+    c.step()
+    assert c.gen == 1
