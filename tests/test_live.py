@@ -247,6 +247,11 @@ def test_the_whole_account_is_the_bots_when_told_so():
     fills = b.sync()
     assert len(fills) == 1 and b.position(SPOT).qty == 0.0 and b.adopted == []     # never counted twice, never a phantom position
     assert round(b.equity(b.marks), 2) == 100.0
+    b2 = LiveBroker(ex)                                                # a restart with a wrong number saved, before any price has arrived
+    b2.own_symbols = [SPOT]
+    b2.load_state({"positions": {SPOT: {"qty": 0.0013, "avg": 75000.0}}})
+    b2.sync()
+    assert b2.position(SPOT).qty == 0.0 and round(b2.equity({SPOT: 75000.0}), 2) == 100.0     # the phantom is gone before anything can act on it
 
 
 def test_practice_money_and_real_money_keep_separate_loss_budgets(tmp_path):

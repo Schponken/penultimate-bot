@@ -227,10 +227,13 @@ class LiveBroker:
             # The whole account is the bot's: the coin balance the exchange reports IS the position, however it got there.
             # The balance is the single truth for how much is held, so a trade that shows up late can never be counted twice.
             for sym in self.own_symbols:
-                mark = self.marks.get(sym)
-                if not mark or is_perp(sym):
+                if is_perp(sym):
                     continue
                 have, p = float((bal.get("total") or {}).get(sym.split("/")[0]) or 0.0), self.position(sym)
+                mark = self.marks.get(sym)
+                if not mark:                                    # no price yet (start-up): still never hold a number the exchange does not show
+                    p.qty = min(p.qty, have) if have > 0 else 0.0
+                    continue
                 if have * mark < 1.0:
                     have = 0.0                                  # dust
                 if have > p.qty and (have - p.qty) * mark >= 1.0 and sym not in self._took_on and not any(f.symbol == sym for f in fills):
