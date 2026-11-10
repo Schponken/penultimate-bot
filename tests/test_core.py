@@ -395,6 +395,12 @@ def test_hold_the_market_buys_to_the_chosen_share_then_leaves_it_alone(tmp_path)
     eng.run(max_ticks=400)
     hold_fills = [f for f in eng.fills if f["strategy"] == "hold"]
     assert len(hold_fills) == len(buys)                                         # once built it does not churn
+    eng.broker.cash += 60.0                                                     # you add money later
+    eng.run(max_ticks=2500)
+    share2 = eng.broker.position(spot).qty * eng.marks[spot] / eng.broker.equity(eng.marks)
+    after = [f for f in eng.fills if f["strategy"] == "hold"]
+    assert 0.44 < share2 < 0.56 and len(after) > len(buys) and all(f["side"] == "buy" for f in after)    # its share of the new money is bought, nothing is sold
+    assert any("new money arrived" in ev["detail"] for ev in eng.events)
     eng.save_state()
     eng2 = make()                                                               # a restart remembers the choice
     assert eng2.hold.pct == 50 and eng2.hold.built

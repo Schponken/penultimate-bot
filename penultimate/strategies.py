@@ -274,6 +274,9 @@ class Hold(Strategy):
         self.pct, self.weeks, self.since = 0.0, 1, 0.0
         self.built, self.last_reb, self.adjust = False, 0.0, False
         self._last = 0.0
+        self.topup = False          # new money arrived: buy your share of it (never sells)
+        self._cash_seen: Optional[float] = None
+        self._fills_seen = 0
         self.capped = False
         self._v: dict = {}
 
@@ -305,6 +308,13 @@ class Hold(Strategy):
         allowed = target if self.built else target * parts / max(1, self.weeks)
         self._v = {"value": val, "target": target, "allowed": allowed, "parts": parts, "equity": equity,
                    "next_part": self.since + parts * self.WEEK if self.pct > 0 and not self.built and parts < self.weeks else None}
+        # Money you add later is put to work by itself: cash that grows without the bot having sold anything is a deposit.
+        fills_n = eng.flow.get("fills", 0)
+        if (self.pct > 0 and self.built and self._cash_seen is not None and fills_n == self._fills_seen
+                and b.cash - self._cash_seen >= max(5.0, 0.02 * equity)):
+            self.topup = True
+            eng.event("control", f"hold the market: ${b.cash - self._cash_seen:,.2f} of new money arrived; buying {self.pct:.0f}% of it", tick.ts)
+        self._cash_seen, self._fills_seen = b.cash, fills_n
         mine = self._mine()
         for o in mine:                                              # a resting order the market has moved away from is re-priced
             if tick.ts - o.ts > self.REPRICE_S:
@@ -322,12 +332,12 @@ class Hold(Strategy):
         gap = allowed - val
         if not self.built and val >= target - small:
             self.built, self.last_reb, self.adjust = True, tick.ts, False
-        if not self.built or self.adjust:
+        if not self.built or self.adjust or self.topup:
             if gap > small:
                 return self._buy(tick, gap)
             if self.adjust and -gap > small:                        # you lowered the share: sell down to it
                 return self._sell(tick, -gap, val)
-            self.adjust = False
+            self.adjust = self.topup = False
             self.note = (f"holding ${val:,.2f}, part {parts} of {self.weeks} bought" if not self.built
                          else f"holding ${val:,.2f} ({val / equity:.0%} of the account)")
             return
