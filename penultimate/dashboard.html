@@ -45,6 +45,14 @@ main{padding:12px 16px 40px;max-width:1500px;margin:0 auto}
 .w:hover{border-color:#27364a}
 @keyframes enter{from{opacity:0}}.w{animation:enter .6s var(--ease) both}
 html{overflow-x:clip}
+.w :is(.note,.stat,#regime .row,.nums,th,.lim .row,.wn,.mix div){transition:opacity .25s}
+.minimal .w:not(:hover):not(.max):not(#w-setup) :is(.note,.stat,#regime .row,.nums,th,.lim .row){opacity:0}
+.minimal .w:not(:hover):not(.max):not(.min) .wn{opacity:0}
+.minimal #tele{opacity:0;transition:opacity .25s}.minimal header:hover #tele{opacity:1}
+#cock{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px;padding:9px 12px;border:1px solid var(--line);border-radius:5px;background:var(--panel)}
+#cock b{flex:1;min-width:220px;font:500 14px var(--sans)}#cock b i{font-style:normal;color:var(--dim)}
+.zbtn{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.zbtn a{text-decoration:none;font-size:12.5px;font-weight:600;border-radius:4px;border:1px solid var(--line);background:var(--panel2);color:var(--ink);padding:7px 11px}
+#zoom ol{margin:10px 0 0;padding-left:20px;line-height:1.55}#zoom li{margin:4px 0}
 main{transition:transform .6s cubic-bezier(.16,1,.3,1)}main.push{transform:scale(1.05)}
 #zveil{position:fixed;inset:0;z-index:45;background:rgba(2,3,6,.62);opacity:0;pointer-events:none;transition:opacity .4s}#zveil.on{opacity:1;pointer-events:auto}
 #zoom{position:fixed;z-index:50;display:none;background:linear-gradient(180deg,#111b28,#0a1018);border:1px solid #2f4259;border-radius:10px;padding:16px 18px 14px;box-shadow:0 34px 100px rgba(0,0,0,.8),0 0 0 1px rgba(53,200,255,.14),0 0 60px rgba(53,200,255,.08);max-height:calc(100vh - 76px);overflow:auto;will-change:transform,opacity}
@@ -144,6 +152,7 @@ p{margin:6px 0}.note{color:var(--dim);font-size:12px}a{color:var(--cy)}
   <button class="stop" onclick="stopAll()">Stop everything</button>
 </header>
 <main>
+  <div id="cock"><b id="say">Starting…</b><span id="cockBtns"></span></div>
   <div id="banners"></div><div id="hint"></div>
   <div id="grid"><div id="ph"></div></div>
 </main>
@@ -206,7 +215,7 @@ const cwrap=id=>`<div class="cw"><canvas id="${id}"></canvas></div>`;
   const el=document.createElement("section");el.className="w";el.id="w-"+id;el.dataset.id=id;
   el.innerHTML=`<h2 class="wh"><span class="grip" aria-hidden="true">⠿</span><span class="wt" id="t-${id}">${t}</span><span class="wn" id="n-${id}"></span><span class="wb"><button data-a="min" title="Fold or unfold" aria-label="Fold or unfold ${t}">–</button><button data-a="max" title="Full screen (or double-click the title)" aria-label="Full screen ${t}">⤢</button></span></h2><div class="wbody">${body}</div><i class="rs" title="Drag to resize"></i>`;
   el.style.animationDelay=(Object.keys(EL).length*45)+"ms";grid.appendChild(el);EL[id]=el});
-let OPT=Object.assign({lock:false,auto:true,bg:true,hint:true},LS.get("opt",{})),L=LS.get("layout",null),MAXED=null,narrow=false,BUSY=false,FLOADED=false;
+let OPT=Object.assign({lock:false,auto:true,bg:true,hint:true,min:true},LS.get("opt",{})),L=LS.get("layout",null),MAXED=null,narrow=false,BUSY=false,FLOADED=false;
 function freshLayout(){const o={};for(const id in DEF){const d=DEF[id];o[id]={id,x:d.x,y:d.y,w:d.w,h:d.h,H:d.h,mode:"auto",min:false}}return o}
 
 const hit=(a,b)=>a.id!==b.id&&a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;
@@ -259,22 +268,23 @@ grid.addEventListener("pointerdown",e=>{const wh=e.target.closest(".wh"),rs=e.ta
 new ResizeObserver(()=>{if(!BUSY)place(view())}).observe(grid);
 /* widgets with nothing to show fold away by themselves and come back when they have something */
 const REL={fills:()=>(S.fills||[]).length>0,pos:()=>(S.positions||[]).length+(S.orders||[]).length>0,lat:()=>!!D,ridge:()=>!!RID,matrix:()=>!!(D&&D.source==="model"),
-  score:()=>(S.score||[]).length>0||!!(S.fc&&S.fc.enabled),lab:()=>!!(LAB&&LAB.gens&&LAB.gens.length),paths:()=>!!(LAB&&LAB.race&&LAB.race.v.length),calls:()=>(S.open_calls||[]).length>0};
+  events:()=>!OPT.min,score:()=>!OPT.min&&((S.score||[]).length>0||!!(S.fc&&S.fc.enabled)),lab:()=>!!(LAB&&LAB.gens&&LAB.gens.length),paths:()=>!!(LAB&&LAB.race&&LAB.race.v.length),calls:()=>!OPT.min&&(S.open_calls||[]).length>0};
 function autoFold(){if(!OPT.auto||BUSY||!S.ready||!FLOADED)return;for(const id in REL){const it=L[id],want=REL[id]();if(it.mode==="auto"&&it.min===want){setMin(id,!want,false);if(want)ping(id)}}}
 /* layout menu */
 function drawMenu(){setH("menu",`<button data-m="lock">${OPT.lock?"Unlock moving and resizing":"Lock the layout"}<span>${OPT.lock?"locked":"free"}</span></button>
   <button data-m="auto">Auto-arrange<span>${OPT.auto?"on":"off"}</span></button><p>When on, panels with nothing to show fold away and come back by themselves.</p>
+  <button data-m="min">Minimal view<span>${OPT.min?"on":"off"}</span></button><p>When on, words stay out of the way until you point at a panel.</p>
   <button data-m="bg">Background motion<span>${OPT.bg?"on":"off"}</span></button>
   <button data-m="open">Unfold everything</button><button data-m="reset">Reset the layout</button>
-  <p>Drag a title to move. Drag a corner to resize. Double-click a title for full screen. Esc closes.</p>`);document.body.classList.toggle("lock",OPT.lock)}
+  <p>Drag a title to move. Drag a corner to resize. Double-click a title for full screen. Esc closes.</p>`);document.body.classList.toggle("lock",OPT.lock);document.body.classList.toggle("minimal",!!OPT.min)}
 $("menuBtn").onclick=e=>{const m=$("menu");m.classList.toggle("on");$("menuBtn").setAttribute("aria-expanded",m.classList.contains("on"));e.stopPropagation()};
 $("menu").onclick=e=>{const b=e.target.closest("button");if(!b)return;const m=b.dataset.m;e.stopPropagation();
-  if(m==="lock")OPT.lock=!OPT.lock;if(m==="auto"){OPT.auto=!OPT.auto;if(OPT.auto)for(const id in L)L[id].mode="auto"}if(m==="bg")OPT.bg=!OPT.bg;
+  if(m==="lock")OPT.lock=!OPT.lock;if(m==="auto"){OPT.auto=!OPT.auto;if(OPT.auto)for(const id in L)L[id].mode="auto"}if(m==="bg")OPT.bg=!OPT.bg;if(m==="min")OPT.min=!OPT.min;
   if(m==="open"){for(const id in L){L[id].mode="open";L[id].min=false;L[id].h=L[id].H+(L[id].g||0)}arrange(Object.values(L))}
   if(m==="reset"){L=freshLayout();for(const k in NO)delete NO[k];LS.set("nodes",NO);OPT.hint=true}
   save();drawMenu();place(view());render()};
 addEventListener("click",()=>$("menu").classList.remove("on"));
-addEventListener("keydown",e=>{if(e.key==="Escape"){if(ZOOM)closeZoom();else if(MAXED)maxi(null);else{SELP=null;HOURP=null}$("menu").classList.remove("on")}});
+addEventListener("keydown",e=>{if(e.key==="Escape"){if(ZOOM)closeZoom();else if(Gs.focus)Gs.focus=null;else if(MAXED)maxi(null);else{SELP=null;HOURP=null}$("menu").classList.remove("on")}});
 
 /* ================= hover and click plumbing ================= */
 const tipEl=$("tip");let HV=null,CK=null,tipHTML="",MX=0,MY=0,RAFQ=false;
@@ -287,7 +297,7 @@ function showTip(html,text){if(tipEl._h!==html){tipEl._h=html;if(text)tipEl.text
   if(!html){tipEl.style.display="none";return}tipEl.style.display="block";const w=tipEl.offsetWidth,h=tipEl.offsetHeight;
   tipEl.style.left=clamp(MX+14,6,innerWidth-w-6)+"px";tipEl.style.top=(MY+16+h>innerHeight?MY-h-10:MY+16)+"px"}
 function kick(){if(RM&&!RAFQ){RAFQ=true;requestAnimationFrame(frame)}}
-addEventListener("pointermove",e=>{MX=e.clientX;MY=e.clientY;const c=e.target&&e.target.tagName==="CANVAS"&&e.target.id!=="bg"?e.target:null;
+addEventListener("pointermove",e=>{MX=e.clientX;MY=e.clientY;const hw=e.target.closest&&e.target.closest(".w");HOTW=hw?hw.dataset.id:null;const c=e.target&&e.target.tagName==="CANVAS"&&e.target.id!=="bg"?e.target:null;
   if(c){const r=c.getBoundingClientRect(),k=r.width?c.clientWidth/r.width:1;HV={id:c.id,x:(e.clientX-r.left)*k,y:(e.clientY-r.top)*k}}else{HV=null;const d=e.target.closest&&e.target.closest("[data-tip]");showTip(BUSY?"":d?d.dataset.tip:MH&&MH.tip&&e.target.closest("#matrix")?MH.tip:"",true)}kick()});
 document.addEventListener("pointerleave",()=>{HV=null;showTip("")});
 addEventListener("scroll",()=>{HV=null;showTip("")},{passive:true});
@@ -297,7 +307,9 @@ const hov=id=>!ZOOM&&HV&&HV.id===id?HV:null;
 const take=id=>{if(CK&&CK.id===id){const c=CK;CK=null;return c}return null};
 /* click to expand: the detail grows out of the thing you clicked while the page pushes in toward it */
 const zoomEl=$("zoom"),zveil=$("zveil"),mainEl=document.querySelector("main");let zAnim=null;
-function zoomHTML(){const k=ZOOM.key;if(k.startsWith("n:")){const d=S.ready?nodeDetail(k.slice(2)):null;return d?[esc(d[0]),kv(d[1],d[2])]:null}const d=DET[k];return d?[d.t,d.f()]:null}
+function zoomHTML(){const k=ZOOM.key;if(k.startsWith("i:")){const m=k.split(":"),ix=+m.pop(),dd=inner(m.slice(1).join(":")),q=dd&&dd.steps.filter(v=>!v.side).concat(dd.steps.filter(v=>v.side))[ix];
+    return q?[esc(dd.title)+" · "+esc(q.label),kv([["right now",esc(q.val)],["status",{ok:"fine",warn:"worth watching",bad:"tripped",info:"information",idle:"not in use"}[q.st]||""]],esc(q.rule))]:null}
+  if(k.startsWith("n:")){const d=S.ready?nodeDetail(k.slice(2)):null;return d?[esc(d[0]),kv(d[1],d[2])]:null}const d=DET[k];return d?[d.t,d.f()]:null}
 function zoomRefresh(){if(!ZOOM)return;const h=zoomHTML();if(h){setH("zT",h[0]);setH("zB",h[1])}}
 function originRect(){if(!ZOOM)return null;const k=ZOOM.key,pushed=mainEl.classList.contains("push");let r=null;
   if(pushed){mainEl.style.transition="none";mainEl.classList.remove("push");void mainEl.offsetWidth}
@@ -362,7 +374,20 @@ function render(){
     else if(u.state==="error"&&u.error)b+=`<div class="banner warn"><b>Update problem: ${esc(u.error)}. The bot keeps running on the current version.</b><button onclick="post({cmd:'update'})">Try again</button></div>`;
     else if(u.available)b+=`<div class="banner warn"><b>A new version is ready${u.message?": "+esc(u.message):""}.${live?" With real money on, it waits for your click.":" On fake money it installs by itself within a few minutes."}</b><button class="go" onclick="post({cmd:'update'})">Update now</button></div>`}
   setH("banners",b);
-  setH("hint",OPT.hint?`<div class="banner hint"><b>Everything here moves: drag a title to rearrange, drag a corner to resize, double-click a title for full screen. Hover anything for detail, click to pin or expand it.</b><button onclick="OPT.hint=false;save();render()">Got it</button></div>`:"");
+  setH("hint",OPT.hint&&!OPT.min?`<div class="banner hint"><b>Everything here moves: drag a title to rearrange, drag a corner to resize, double-click a title for full screen. Hover anything for detail, click to pin or expand it.</b><button onclick="OPT.hint=false;save();render()">Got it</button></div>`:"");
+  /* the cockpit: what is happening in one sentence, and the money buttons */
+  const nOd=(s.orders||[]).length,nPs=(s.positions||[]).length,held0=(s.positions||[]).reduce((a,x)=>a+Math.abs(x.value),0),coin=esc(s.spot.split("/")[0]),funded0=live&&s.free_cash>=s.limits.max_order_usd;
+  setH("say",s.blocked?"Blocked: "+esc((s.problems||[])[0]||"see below"):r.halted?"Halted. Everything is sold and nothing trades until you resume.":
+    (live?"Live, real money":"Practice, fake money")+": "+(nPs?`holding ${usd0(held0)} of ${coin}`:live&&!funded0?"waiting for dollars to arrive":nOd?`${nOd} bid${nOd>1?"s":""} waiting below the price`:"watching")+`. <i>${coin} ${usd0(price)} · today ${usd(s.day_pnl)}</i>`);
+  setH("cockBtns",`<button onclick="openZoom('m:add',this.getBoundingClientRect(),event.clientX,event.clientY)">Add money</button> <button onclick="openZoom('m:out',this.getBoundingClientRect(),event.clientX,event.clientY)">Take money out</button> `+
+    (r.halted?`<button class="go" onclick="post({cmd:'resume'})">Resume</button>`:live?`<button onclick="post({cmd:'mode',target:'paper_live'})">Back to practice</button>`:s.keys_saved?`<button class="stop" onclick="goLive()">Go live</button>`:`<button onclick="document.getElementById('w-setup').scrollIntoView({behavior:'smooth',block:'center'});ping('setup')">Set up real money</button>`));
+  const CB=`<a href="https://www.coinbase.com/" target="_blank" rel="noopener">Open Coinbase</a>`;
+  DET["m:add"]={t:"Add money",f:()=>kv([["the bot's whole budget",usd0(s.budget)],["dollars it can use right now",live?usd(s.free_cash):"practice money only"],["mode",live?"live, real money":"practice, fake money"]])+
+    (live?`<ol><li>Open Coinbase and deposit US dollars into your account there.</li><li>That is all. The bot checks the balance every couple of seconds and starts by itself once at least ${usd0(s.limits.max_order_usd)} has arrived.</li></ol><p class="note">It never has more than ${usd0(s.budget)} working, however much is in the account. The bot cannot move money in or out for you: its key is allowed to trade only.</p><div class="zbtn">${CB}</div>`
+     :`<ol><li>${s.keys_saved?"Your exchange key is saved.":"Save your exchange key first, in the Setup panel."}</li><li>Switch to real money with Go live. You will be asked to type GO LIVE.</li><li>Deposit US dollars on Coinbase. The bot starts by itself when they arrive.</li></ol><p class="note">Right now it trades fake money, so there is nothing to deposit yet.</p><div class="zbtn">${s.keys_saved?`<button class="stop" onclick="closeZoom();goLive()">Go live with real money</button>`:""}${CB}</div>`)};
+  DET["m:out"]={t:"Take money out",f:()=>kv([["in coins right now",usd(held0)],["resting orders",nOd],["dollars free",live?usd(s.free_cash):"practice money only"]])+
+    (live?`<ol><li>Stop and sell everything: this cancels the resting bids and sells any coin, so the whole balance is dollars.</li><li>Withdraw the dollars on Coinbase.</li></ol><p class="note">The bot cannot withdraw for you. Its key has no permission to move money, by design, so a leaked key could not empty the account. After stopping, it stays halted until you press Resume.</p><div class="zbtn"><button class="stop" onclick="closeZoom();stopAll()">Stop and sell everything</button>${CB}</div>`
+     :`<p class="note">This is practice money, so there is nothing real to withdraw. With real money this card stops the bot, sells everything to dollars and takes you to Coinbase to withdraw.</p>`)};
   /* account */
   setT("n-acct",live?"real money on "+s.venue:"practice money");
   num("kEq",s.equity,v=>usd(v),"big");num("kDay",s.day_pnl,v=>usd(v),sign(s.day_pnl));num("kTot",s.total_pnl,v=>usd(v),sign(s.total_pnl));num("kFee",s.fees,v=>usd(v),"dim");num("kFun",s.funding,v=>usd(v),sign(s.funding));
@@ -381,7 +406,7 @@ function render(){
   const Lm=s.limits;setT("n-limits",`exposure ${usd0(r.gross)} of ${usd0(Lm.max_gross_exposure_usd)}`);
   setH("limits",bar("lim:day","Today's loss",r.day_loss,Lm.max_daily_loss_usd,usd0)+bar("lim:gross","Total exposure",r.gross,Lm.max_gross_exposure_usd,usd0)+bar("lim:lev","Leverage",r.leverage,Lm.max_leverage,v=>v.toFixed(2)+"x")
     +`<p class="note">Biggest order ${usd0(Lm.max_order_usd)}, biggest position ${usd0(Lm.max_position_usd)}, orders refused so far ${r.rejections}</p>`);
-  setH("strats",(s.strategies||[]).map(x=>{const k="st:"+x.name;DET[k]={t:"Strategy · "+esc(x.name),html:1,f:()=>kv([["doing now",esc(x.note||"watching")]].concat(Object.entries(x).filter(e=>!["name","note"].includes(e[0])).map(e=>[esc(e[0]),esc(e[1])])),STRAT[x.name]||"")};return `<div class="lim x${isX(k)?" on":""}" data-x="${esc(k)}"><p><b style="font-family:var(--mono)">${esc(x.name)}</b> <span class="note">${esc(x.note||"watching")}</span></p></div>`}).join("")||'<p class="note">No strategies running.</p>');
+  setH("strats",(s.strategies||[]).map(x=>{const k="st:"+x.name;DET[k]={t:"Strategy · "+esc(x.name),html:1,f:()=>kv([["doing now",esc(x.note||"watching")]].concat(Object.entries(x).filter(e=>!["name","note","inner"].includes(e[0])).map(e=>[esc(e[0]),esc(e[1])])),STRAT[x.name]||"")};return `<div class="lim x${isX(k)?" on":""}" data-x="${esc(k)}"><p><b style="font-family:var(--mono)">${esc(x.name)}</b> <span class="note">${esc(x.note||"watching")}</span></p></div>`}).join("")||'<p class="note">No strategies running.</p>');
   /* positions and orders */
   const ps=s.positions||[],od=s.orders||[];setT("n-pos",(ps.length?ps.length+" open":"flat")+" · "+od.length+" resting");
   let p="<table><tr><th>Position</th><th>Qty</th><th>Entry</th><th>Value</th></tr>"+(ps.length?ps.map(x=>xr("p:"+x.symbol,`<td>${esc(x.symbol)}</td><td>${x.qty.toFixed(5)}</td><td>${usd0(x.avg)}</td><td>${usd0(x.value)}</td>`,4,
@@ -593,8 +618,9 @@ function drawPaths(t){const c0=cv("cPaths");if(!c0)return;const [g,w,h]=c0;if(PM
 const MONO=getComputedStyle(document.body).getPropertyValue("--mono");
 function cv(id){const c=$(id),r={width:c.clientWidth,height:c.clientHeight},d=window.devicePixelRatio||1;if(r.width<30||r.height<30)return null;const W=Math.round(r.width*d),H=Math.round(r.height*d);
   if(c.width!==W||c.height!==H){c.width=W;c.height=H}const g=c.getContext("2d");g.setTransform(d,0,0,d,0,0);g.clearRect(0,0,r.width,r.height);return [g,r.width,r.height]}
-function label(g,t,x,y,col,align,size){g.font=(size||10)+"px "+MONO;g.fillStyle=col||C.dim;g.textAlign=align||"left";g.fillText(t,x,y)}
-function emptyMsg(g,w,h,t){label(g,t,w/2,h/2,C.dim,"center",11)}
+let LQ=false,HOTW=null;const quiet=id=>OPT.min&&HOTW!==id&&MAXED!==id;
+function label(g,t,x,y,col,align,size,keep){if(LQ&&!keep)return;g.font=(size||10)+"px "+MONO;g.fillStyle=col||C.dim;g.textAlign=align||"left";g.fillText(t,x,y)}
+function emptyMsg(g,w,h,t){label(g,t,w/2,h/2,C.dim,"center",11,1)}
 function vline(g,x,y0,y1,col,dash){g.strokeStyle=col;g.lineWidth=1;g.setLineDash(dash||[]);g.beginPath();g.moveTo(Math.round(x)+.5,y0);g.lineTo(Math.round(x)+.5,y1);g.stroke();g.setLineDash([])}
 const PX=[];let pxFlash=0,pxDir=1;
 
@@ -661,7 +687,7 @@ function drawPrice(t){const c0=cv("cPrice");if(!c0)return;const [g,w,h]=c0,cs=F.
     if(near){const tp=touchProb(o.price);tipHTML=`<b>Resting ${o.side} order</b>`+trow("price",usd(o.price))+trow("value",usd(o.qty*o.price))+trow("from price now",pct(o.price/price-1,2))+trow("placed by",esc(o.strategy))+(tp!=null&&o.side==="buy"?trow("model paths that reach it",Math.round(tp*100)+"%"):"")}});
   const yp=Y(price);g.strokeStyle="rgba(233,239,246,.35)";g.setLineDash([1,3]);g.beginPath();g.moveTo(0,yp);g.lineTo(w-padR,yp);g.stroke();g.setLineDash([]);
   const pulse=RM?0:(t*1.2)%1;g.beginPath();g.arc(xn,yp,3+pulse*9,0,7);g.strokeStyle=`rgba(233,239,246,${.6*(1-pulse)})`;g.stroke();g.beginPath();g.arc(xn,yp,3,0,7);g.fillStyle=C.ink;g.fill();
-  const fl=Math.max(0,1-(performance.now()-pxFlash)/700);g.fillStyle=fl>0&&!RM?(pxDir>0?C.up:C.down):C.ink;g.fillRect(w-padR+2,yp-8,padR-2,16);label(g,Math.round(price).toLocaleString(),w-padR+6,yp+3.5,C.bg);
+  const fl=Math.max(0,1-(performance.now()-pxFlash)/700);g.fillStyle=fl>0&&!RM?(pxDir>0?C.up:C.down):C.ink;g.fillRect(w-padR+2,yp-8,padR-2,16);label(g,Math.round(price).toLocaleString(),w-padR+6,yp+3.5,C.bg,"left",10,1);
   label(g,"now",xn,h-3,C.dim,"center");
   if(hv&&hv.x<w-padR){vline(g,hv.x,padT,h-padB,"rgba(233,239,246,.25)",[2,3]);g.strokeStyle="rgba(233,239,246,.25)";g.setLineDash([2,3]);g.beginPath();g.moveTo(0,hv.y);g.lineTo(w-padR,hv.y);g.stroke();g.setLineDash([]);
     if(hv.y>padT&&hv.y<h-padB){g.fillStyle=C.panel2||"#0d131b";g.fillRect(w-padR+2,hv.y-8,padR-2,16);label(g,Math.round(iY(hv.y)).toLocaleString(),w-padR+6,hv.y+3.5,C.cy)}
@@ -724,74 +750,181 @@ function drawReg(t){const c0=cv("cReg");if(!c0)return;const [g,w,h]=c0,d=S.regim
   const hv=hov("cReg");if(hv){const i=clamp(Math.round(hv.x/w*(d.length-1)),0,d.length-1),r=d[i];vline(g,X(i),0,h,"rgba(233,239,246,.5)",[2,3]);
     tipHTML=`<b>${clock(r[0])}</b>`+trow("trend",`<span class="up">${Math.round(r[1]*100)}%</span>`)+trow("chop",Math.round(r[2]*100)+"%")+trow("panic",`<span class="down">${Math.round(r[3]*100)}%</span>`)+`<i>The mix decides position size.</i>`}}
 
-/* signal graph */
-const Gs={nodes:{},edges:[],parts:[],seen:null,fills:null,lastPrice:null},NO=LS.get("nodes",{});let gSkip=false;
-function gn(id,p){const n=Gs.nodes[id]||(Gs.nodes[id]={id,ph:Math.random()*6.28,flash:0,x:0,y:0});Object.assign(n,p);n.bx=p.ax;n.by=p.ay;const o=NO[id];if(o){n.ax=clamp(p.ax+o[0],.03,.97);n.ay=clamp(p.ay+o[1],0,1)}n.alive=true;return n}
-function emit(a,b,col,n,speed){for(let i=0;i<(n||1);i++)Gs.parts.push({a,b,p:-i*.07,v:(speed||.55)*(.8+Math.random()*.4),col})}
+/* signal graph: every moving dot is one real thing the bot did since the last update; click a box to go inside it */
+const Gs={nodes:{},edges:[],parts:[],prev:null,focus:null,last:null,z:0,ip:[],esum:{}},NO=LS.get("nodes",{});let gSkip=false;
+function gn(id,p){const n=Gs.nodes[id]||(Gs.nodes[id]={id,flash:0,burst:0,x:0,y:0});Object.assign(n,p);n.bx=p.ax;n.by=p.ay;const o=NO[id];if(o){n.ax=clamp(p.ax+o[0],.03,.97);n.ay=clamp(p.ay+o[1],0,1)}n.alive=true;return n}
+function emit(a,b,col,n,what){if(!Gs.nodes[a]||!Gs.nodes[b])return;n=Math.min(n||1,6);for(let i=0;i<n;i++){const v=.6*(.9+Math.random()*.2);Gs.parts.push({a,b,p:-v*(i/n)*.9,v,col})}
+  const e=Gs.esum[a+">"+b]||(Gs.esum[a+">"+b]={n:0,t:0,what});e.n+=n;e.t=Date.now();e.what=what;if(Gs.nodes[b])Gs.nodes[b].hit=1}
+const STC={ok:"#00e676",warn:"#ffb020",bad:"#ff2e4c",info:"#35c8ff",idle:"#6f7f93"};
+/* what is inside each box: its working steps, their live values, and the rule each one applies */
+function inner(id){const s=S;if(!s.ready)return null;const I=s.inner||{},Lm=s.limits,r=s.risk,g=s.regime,fc=s.fc||{},F=s.flow||{},st=(bad,warn)=>bad?"bad":warn?"warn":"ok",N=v=>(v||0).toLocaleString();
+  if(id==="feed"){const f=I.feed||{};return{title:"Price feed",flow:"ticks",note:"Where every price comes from. One dot is one price update.",steps:[
+    {label:"exchange",val:s.feed==="live"?s.venue:"practice",st:"info",rule:"Public prices only. Reading them needs no access to your account."},
+    {label:"ask again",val:"about 1 a second",st:"info",rule:"The bot asks the exchange for the newest best bid, best ask and last trade about once a second."},
+    {label:"price update",val:f.bid?usd(f.bid):"–",st:"ok",rule:"One price update (a tick). Everything downstream runs once for each one. Bid "+usd(f.bid)+", ask "+usd(f.ask)+"."},
+    {label:"still fresh?",val:f.age==null?"–":f.age.toFixed(1)+"s old",st:st(s.health.stale,f.age>Lm.stale_feed_seconds/2),rule:`If no price arrives for ${Lm.stale_feed_seconds}s: cancel every resting order and pause new entries for ${Lm.cooldown_seconds}s.`},
+    {label:"gap small?",val:f.spread_bps==null?"–":f.spread_bps.toFixed(1)+" of "+Lm.max_spread_bps,st:st(f.spread_bps>Lm.max_spread_bps,f.spread_bps>Lm.max_spread_bps/2),rule:`If the gap between bid and ask is wider than ${Lm.max_spread_bps} hundredths of a percent: pause new entries.`},
+    {label:"sent on",val:N(F.ticks)+" so far",st:"info",rule:"Each update goes to the regime detector, every strategy, the resting orders and the daily-loss watch."}]}}
+  if(id==="regime"){const q=I.regime||{},mx=g.mix||{};return{title:"Regime detector",flow:"ticks",note:"Decides how big the bot is allowed to trade right now.",steps:[
+    {label:"recent moves",val:q.n+" of "+q.window,st:q.n<q.window/4?"warn":"ok",rule:`Keeps the last ${q.window} price moves. It needs a quarter of them before it will judge anything.`},
+    {label:"how violent",val:(q.recent_vol*100).toFixed(3)+"%",st:st(q.recent_vol>q.panic_vol,q.recent_vol>q.panic_vol/2),rule:`Size of the last 10 moves. Above ${(q.panic_vol*100).toFixed(2)}% per update counts as panic.`},
+    {label:"one-way?",val:g.trend.toFixed(2),st:Math.abs(g.trend)>q.trend_z?"warn":"ok",rule:`Trend strength. Beyond ${q.trend_z} in either direction counts as trending.`},
+    {label:"fast drop?",val:pct(g.flash,2),st:st(g.flash<-.03,g.flash<-.015),rule:"Fall over the last 10 updates. Worse than -3% is treated as panic and pauses new entries."},
+    {label:"the mix",val:[mx.trend,mx.chop,mx.panic].map(v=>Math.round((v||0)*100)).join(" / "),st:"info",rule:"Trend / chop / panic, as shares. This is what the market-state chart draws."},
+    {label:"hold steady",val:q.cand?q.cand+" "+q.count+"/"+q.need:"settled",st:q.cand?"warn":"ok",rule:"A new state must hold for a while before the bot switches to it, so it does not flicker. Panic is the exception: that switches at once."},
+    {label:"state",val:g.state,st:g.state==="panic"?"bad":g.state==="trending"?"warn":"ok",rule:"The call: warming, choppy, trending or panic."},
+    {label:"trade size",val:"x"+g.size_mult.toFixed(2),st:g.size_mult<1?"warn":"ok",rule:"Full size in chop, three-quarters in a trend, a quarter in panic, half while warming. Risk-off cuts it to a quarter again."}]}}
+  if(id==="risk"){const q=I.risk||{},by=q.by_rule||{},last=q.last||{},c=k=>by[k]?by[k]+" refused":"none refused";return{title:"Risk engine",flow:"checks",note:"The only door an order can go through. One dot is one order asking.",end:l=>({halted:2,paused:3,order:4,position:5,exposure:6,leverage:7})[(l||{}).rule]||8,steps:[
+    {label:"order asks",val:N(q.checks)+" so far",st:"info",rule:"Every order from every strategy arrives here first. Nothing reaches the exchange any other way."+(last.strategy?` Latest: ${last.strategy} ${last.side} ${usd0(last.usd)}: ${last.ok?"approved":"refused ("+last.why+")"}.`:"")},
+    {label:"cuts risk?",val:"always yes",st:"ok",rule:"An order that only shrinks a position is always allowed, even while halted."},
+    {label:"halted?",val:r.halted?"HALTED":"no",st:r.halted?"bad":"ok",rule:"After the daily-loss cap or the stop button, everything that adds risk is refused until you press Resume. "+c("halted")+"."},
+    {label:"paused?",val:r.paused?Math.ceil(r.pause_left)+"s left":"no",st:r.paused?"warn":"ok",rule:`During a cooldown (stale prices, wide gap, fast drop) new entries are refused for ${Lm.cooldown_seconds}s. `+c("paused")+"."},
+    {label:"one order",val:"max "+usd0(Lm.max_order_usd),st:"ok",rule:`Refuse any single order above ${usd0(Lm.max_order_usd)}. `+c("order")+"."},
+    {label:"one position",val:"max "+usd0(Lm.max_position_usd),st:"ok",rule:`Refuse if the position, counting orders already resting, would pass ${usd0(Lm.max_position_usd)}. `+c("position")+"."},
+    {label:"everything",val:usd0(r.gross)+" of "+usd0(Lm.max_gross_exposure_usd),st:st(r.gross>Lm.max_gross_exposure_usd*.95,r.gross>Lm.max_gross_exposure_usd*.8),rule:`Refuse if everything working at once would pass ${usd0(Lm.max_gross_exposure_usd)}. This is the bot's whole budget. `+c("exposure")+"."},
+    {label:"borrowing",val:r.leverage.toFixed(2)+"x of "+Lm.max_leverage+"x",st:"ok",rule:`Refuse if exposure would exceed ${Lm.max_leverage} times the account value. At 1.0 it never borrows. `+c("leverage")+"."},
+    {label:"approved",val:N(q.passed)+" so far",st:"ok",rule:"Only now is the order sent on."},
+    {label:"today's loss",val:usd0(r.day_loss)+" of "+usd0(Lm.max_daily_loss_usd),st:st(r.halted,r.day_loss>Lm.max_daily_loss_usd*.6),rule:`Checked on every price update. At ${usd0(Lm.max_daily_loss_usd)} lost in a day: sell everything and halt.`,side:1}]}}
+  if(id==="acct")return{title:s.mode==="live"?"Exchange account":"Practice account",flow:"ticks",note:s.mode==="live"?"Real money on your exchange.":"Fake money. Nothing real is at stake.",steps:[
+    {label:"cash",val:usd(s.cash),st:"info",rule:"Dollars in the account."},
+    {label:"set aside",val:usd(Math.max(0,s.cash-s.free_cash)),st:"info",rule:"Dollars already promised to resting buy orders."},
+    {label:"free",val:usd(s.free_cash),st:s.free_cash<Lm.max_order_usd?"warn":"ok",rule:"Dollars a new order could use right now."},
+    {label:"coins held",val:usd((s.positions||[]).reduce((a,x)=>a+Math.abs(x.value),0)),st:"info",rule:"Value of open positions at the current price."},
+    {label:"fees paid",val:usd(s.fees),st:"info",rule:"Every trade pays the exchange a fee. It is taken out before any result is shown."},
+    {label:"worth now",val:usd(s.equity),st:"ok",rule:"Cash plus positions at the current price."},
+    {label:"today",val:usd(s.day_pnl),st:s.day_pnl<0?"warn":"ok",rule:"Change since midnight UTC. This is the number the daily-loss cap watches."}]};
+  if(id==="model"){const m=D&&D.source==="model";return{title:"Kronos forecast model",flow:"forecasts",shadow:1,note:"Watched and graded. It has no line to the orders.",steps:[
+    {label:"hourly prices",val:(fc.history||0)+" hours",st:fc.history?"ok":"warn",rule:"Hourly open, high, low, close and volume from the exchange, refreshed every 5 minutes."},
+    {label:"to tokens",val:"tokenizer",st:"info",rule:"Each hour's price bar is turned into tokens, the way words are for a language model."},
+    {label:"the model",val:(fc.model||"").split("/").pop(),st:fc.state==="ready"?"ok":"warn",rule:"A 24.7-million-parameter model trained on market price bars. It runs on this machine, about once an hour."+(fc.took_s?" Last run took "+fc.took_s+"s.":"")},
+    {label:"sampled futures",val:m?D.n+" paths":"–",st:m?"ok":"idle",rule:"It does not give one answer. It is asked 48 times and returns 48 different possible next 24 hours."},
+    {label:"ends higher",val:m?Math.round(D.pUp*100)+"%":"–",st:"info",rule:"Share of the 48 futures that finish above the last hourly close."},
+    {label:"graded",val:(fc.hits||0)+" of "+(fc.graded||0)+" right",st:fc.graded?(fc.hit_rate>=.5?"ok":"warn"):"idle",rule:"Each forecast is checked against the real price 1 hour and 24 hours later."},
+    {label:"to orders",val:"nothing",st:"idle",rule:"Shadow mode: this model cannot place, size or cancel an order."}]}}
+  if(id==="score"){const sc=s.score||[],oc=s.open_calls||[],gr=sc.reduce((a,x)=>a+x.hit+x.miss,0);return{title:"Analyst scoreboard",flow:"score_checks",note:"Public price calls, graded against what the price then did.",steps:[
+    {label:"sources",val:sc.length+" tracked",st:"info",rule:"Analysts and influencers whose dated price calls were recorded."},
+    {label:"open calls",val:oc.length+" waiting",st:"info",rule:"Each call is a level and a deadline, for example: above $100,000 by Dec 31."},
+    {label:"price check",val:N(F.score_checks)+" so far",st:"ok",rule:"Once a minute the real price is checked against every open call."},
+    {label:"graded",val:gr+" settled",st:"info",rule:"A call is a hit when the level is touched in time, a miss when the deadline passes first."},
+    {label:"weight",val:sc[0]?sc[0].weight.toFixed(2)+" top":"–",st:"info",rule:"Every source starts at 0.50. Hits raise it and misses lower it."},
+    {label:"size tilt",val:s.score_live?pct(s.score_tilt,1):"off",st:"info",rule:"The weighted lean of the open calls nudges trade size by at most 10% either way. It never decides a trade by itself."}]}}
+  if(id==="lab"){const Lb=LAB||{},last=Lb.gens&&Lb.gens.length?Lb.gens[Lb.gens.length-1].v:[],b=last.find(v=>v[0]===Lb.best);return{title:"Strategy lab",flow:"lab",shadow:1,note:"Test only. It never trades and never changes the live strategy.",steps:[
+    {label:"past prices",val:(Lb.episodes||0)+" slices",st:Lb.episodes?"ok":"warn",rule:`Real hourly history, cut into overlapping ${Lb.hours||36}-hour slices.`},
+    {label:"variants",val:(Lb.pop||48)+" alive",st:"info",rule:"Each is one setting of the resting-bid strategy: how far below, how many bids, where to take profit and where to stop."},
+    {label:"replay",val:"round "+(Lb.gen||0),st:"ok",rule:"Every variant is replayed on every slice, paying fees. When an hour cannot say what happened first, the worse outcome is assumed."},
+    {label:"rank",val:b?ud(b[3]):"–",st:"info",rule:"Ranked on average result minus a quarter of its spread, on the older 70% of history."},
+    {label:"keep best",val:(Lb.elite||10)+" kept",st:"ok",rule:"The best are kept unchanged and tested again next round."},
+    {label:"mutate",val:"children",st:"info",rule:"The rest are replaced by slightly changed copies of the best, plus a few complete strangers."},
+    {label:"unseen test",val:b?ud(b[4]):"–",st:b?(b[4]>0?"ok":"warn"):"idle",rule:"The best variant's result on the newest 30% of history, which the ranking never saw. This is the honest number."},
+    {label:"to live",val:"nothing",st:"idle",rule:"Nothing here reaches the live strategy."}]}}
+  if(id.startsWith("s:")){const x=(s.strategies||[]).find(v=>"s:"+v.name===id);if(!x)return null;const q=x.inner||{};
+    if(x.name==="deep_bids"){const stop=q.anchor?q.anchor*(1-q.stop_loss):null;return{title:"Strategy: deep_bids",flow:"evals",note:STRAT.deep_bids,end:()=>2,steps:[
+      {label:"price update",val:usd0(s.price),st:"ok",rule:"The strategy looks at every price update."},
+      {label:"anchor",val:q.anchor?usd0(q.anchor):"not set",st:"info",rule:`The price the bids were measured from. It follows the price up after a ${pc(q.recenter)} rise; on the way down it waits ${q.settle_hours}h so a fast drop runs into the bids.`+(q.drift!=null?" Price is "+pct(q.drift,2)+" from it now.":"")},
+      {label:"bid ladder",val:q.resting+" resting",st:q.resting?"ok":"warn",rule:"Buy orders resting "+(q.levels||[]).map(pc).join(", ")+" below the anchor, "+usd0(q.order_usd)+" each"+(q.anchor?": "+(q.levels||[]).map(l=>usd0(q.anchor*(1-l))).join(", "):"")+"."},
+      {label:"filled",val:(q.held||[]).length+" held",st:(q.held||[]).length?"warn":"idle",rule:"A bid fills only if the market trades down to it."+((q.held||[]).length?" Holding entries at "+q.held.map(h=>usd0(h.entry)).join(", ")+".":"")},
+      {label:"take profit",val:"+"+pc(q.take_profit),st:"info",rule:"The moment a bid fills, a sell order is placed "+pc(q.take_profit)+" above the fill."},
+      {label:"stop",val:stop?usd0(stop):"–",st:"info",rule:"One stop for the whole ladder, "+pc(q.stop_loss)+" below the anchor, deeper than the last bid."},
+      {label:"time limit",val:q.max_hold_hours+"h",st:"info",rule:"Anything still held after "+q.max_hold_hours+" hours is sold."},
+      {label:"record",val:x.wins+" won, "+x.losses+" lost",st:"info",rule:"Closed trades so far."}]}}
+    return{title:"Strategy: "+x.name,flow:"evals",note:STRAT[x.name]||"",end:()=>1,steps:[
+      {label:"funding rate",val:s.funding_rate==null?"–":(s.funding_rate*100).toFixed(4)+"%",st:"info",rule:"What holders of the future pay every 8 hours."},
+      {label:"rich enough?",val:"needs "+((q.enter_rate||0)*100).toFixed(3)+"%",st:s.funding_rate>=q.enter_rate?"ok":"idle",rule:"Only worth opening when funding is at least this high."},
+      {label:"beats fees?",val:"within "+q.max_breakeven_periods+" payments",st:"info",rule:"Skipped if fees would take longer than this to earn back. "+x.skipped+" skipped so far."},
+      {label:"both sides fit?",val:usd0(q.notional_usd)+" each",st:"info",rule:"Both orders are checked against the risk limits before either is sent, so it can never end up half hedged."},
+      {label:"hedged pair",val:x.open?"open":"none",st:x.open?"ok":"idle",rule:"Buy the coin and sell the same amount of the future. Price moves cancel out; funding is collected. "+x.opened+" opened so far."},
+      {label:"close",val:"below "+((q.exit_rate||0)*100).toFixed(3)+"%",st:"info",rule:"Closed when funding fades. Switched off with real money for now."}]}}
+  return null}
 function syncGraph(){const s=S;if(!s.ready)return;for(const k in Gs.nodes)Gs.nodes[k].alive=false;
-  const live=s.feed==="live",r=s.risk,fc=s.fc||{},mx=s.regime.mix||{},model=D&&D.source==="model";
-  gn("feed",{label:live?s.venue+" prices":"practice market",ax:.07,ay:.5,r:8,col:C.cy});
-  gn("regime",{label:"regime",sub:s.regime.state,ax:.27,ay:.08,r:8,col:mx.panic>.5?C.down:mx.trend>.5?C.up:"#8fa3b8"});
-  gn("model",{label:"Kronos",sub:model?Math.round(D.pUp*100)+"% of paths up":(fc.state||"off"),ax:.27,ay:.44,r:11,off:model?30:0,col:model?(D.pUp>=.5?C.up:C.down):C.dim});
-  gn("score",{label:"forecasters",sub:s.score_live?"tilt "+pct(s.score_tilt,1):"off",ax:.27,ay:.92,r:8,off:22,col:s.score_live?(s.score_tilt>0?C.up:s.score_tilt<0?C.down:C.dim):C.dim});
-  gn("risk",{label:"risk engine",sub:r.halted?"halted":r.paused?"paused":"clear",ax:.52,ay:.5,r:15,col:r.halted?C.down:r.paused?C.warn:C.up,hub:1});
-  const E=[["feed","regime"],["feed","risk"],["regime","risk"],["model","risk",1],["score","risk"]];
-  const st=s.strategies||[];st.forEach((x,i)=>{gn("s:"+x.name,{label:x.name,ax:.71,ay:(i+1)/(st.length+1),r:8,col:C.cy});E.push(["risk","s:"+x.name])});
-  const od=(s.orders||[]).slice(0,8);od.forEach((o,i)=>{gn("o:"+i,{label:(o.side==="buy"?"bid ":"sell ")+Math.round(o.price||0).toLocaleString(),ax:.86,ay:(i+1)/(od.length+1),r:4,col:o.side==="buy"?C.up:C.warn,sm:1});
-    if(Gs.nodes["s:"+o.strategy])E.push(["s:"+o.strategy,"o:"+i]);E.push(["o:"+i,"acct"])});
-  gn("acct",{label:s.mode==="live"?s.venue+" account":"practice account",ax:.94,ay:.5,r:9,right:1,col:C.ink});
-  if(!od.length)st.forEach(x=>E.push(["s:"+x.name,"acct",1]));
-  for(const k in Gs.nodes)if(!Gs.nodes[k].alive)delete Gs.nodes[k];Gs.edges=E;if(NODE&&!Gs.nodes[NODE])NODE=null;
-  if(s.price!=null){if(Gs.lastPrice!=null&&s.price!==Gs.lastPrice){const col=s.price>Gs.lastPrice?C.up:C.down;emit("feed","risk",col);emit("feed","regime",col);pxFlash=performance.now();pxDir=s.price>Gs.lastPrice?1:-1}Gs.lastPrice=s.price;PX.push(s.price);if(PX.length>300)PX.shift()}
-  const keys=(s.events||[]).map(e=>e.ts+"|"+e.detail);
-  if(Gs.seen){(s.events||[]).forEach((e,i)=>{if(Gs.seen.has(keys[i]))return;
-    if(e.kind==="regime")emit("regime","risk",C.cy,5);else if(e.kind==="forecast")emit("model","risk",C.cy,10);else if(e.kind==="scorekeeper")emit("score","risk",C.up,6);
-    else if(e.kind==="reaction"||e.kind==="control"){Gs.nodes.risk.flash=1;st.forEach(x=>emit("risk","s:"+x.name,C.warn,5))}
-    else if(e.kind==="blocked"){Gs.nodes.risk.flash=1;st.forEach(x=>emit("risk","s:"+x.name,C.down,3))}})}
-  Gs.seen=new Set(keys);
-  const nf=(s.fills||[]).length?s.fills[0].ts+"|"+s.fills[0].tag:"";if(Gs.fills!=null&&nf!==Gs.fills&&s.fills[0]){const f=s.fills[0],sn="s:"+f.strategy;if(Gs.nodes[sn])emit(sn,"acct",f.side==="buy"?C.up:C.warn,12,.7);Gs.nodes.acct.flash=1}Gs.fills=nf}
-function nodeDetail(id){const s=S,r=s.risk,fc=s.fc||{},Lm=s.limits,g=s.regime,mx=g.mix||{};
-  if(id==="feed")return ["Price feed",[["source",s.feed==="live"?esc(s.venue)+", real prices":"built-in practice market"],["last price",usd(s.price)],["feed errors",s.health.feed_errors],["prices stale",s.health.stale?"yes":"no"],["funding per 8h",s.funding_rate==null?"–":(s.funding_rate*100).toFixed(4)+"%"]],"Every price update flows from here to the regime detector and the risk engine. Each dot on the line is one update."];
-  if(id==="regime")return ["Regime detector",[["state",esc(g.state)],["trend / chop / panic",[mx.trend,mx.chop,mx.panic].map(v=>Math.round((v||0)*100)+"%").join(" / ")],["size multiplier","x"+g.size_mult.toFixed(2)],["volatility per tick",(g.vol*100).toFixed(3)+"%"],["trend strength",g.trend.toFixed(2)],["risk-off switch",g.risk_off?"on":"off"]],"Reads recent price moves and scales position size: full in chop, three-quarters in a trend, a quarter in panic."];
-  if(id==="model")return ["Kronos forecast model",[["state",esc(fc.state||"off")]].concat(D&&D.source==="model"?[["paths ending higher in 24h",Math.round(D.pUp*100)+"%"],["median 24h move",pct(D.med,2)],["middle 90%",pct(D.lo,2)+" to "+pct(D.hi,2)],["time to compute",(fc.took_s||0)+"s"]]:[]).concat([["graded so far",fc.graded||0],["right",fc.graded?Math.round(fc.hit_rate*100)+"%":"–"]]),"Each dot circling it is one sampled future. Dashed line: it is watched and graded, and has no say in orders."];
-  if(id==="score")return ["Analyst scoreboard",[["sources tracked",(s.score||[]).length],["open calls",(s.open_calls||[]).length],["tilt on size",s.score_live?pct(s.score_tilt,1):"off"]].concat((s.score||[]).slice(0,5).map(x=>[esc(x.source),x.hit+" hit / "+x.miss+" miss"])),"Public price calls are graded against what the price then did. Reliable sources nudge size by at most 10% either way."];
-  if(id==="risk")return ["Risk engine",[["status",r.halted?"halted":r.paused?"paused":"clear"],["today's loss",usd0(r.day_loss)+" of "+usd0(Lm.max_daily_loss_usd)],["exposure",usd0(r.gross)+" of "+usd0(Lm.max_gross_exposure_usd)],["leverage",r.leverage.toFixed(2)+"x of "+Lm.max_leverage.toFixed(2)+"x"],["biggest order allowed",usd0(Lm.max_order_usd)],["orders refused",r.rejections]],"The single gate every order must pass. The limits live in a separate file the strategies cannot change."];
-  if(id==="acct")return [s.mode==="live"?"Exchange account":"Practice account",[["value",usd(s.equity)],["cash",usd(s.cash)],["free to use",usd(s.free_cash)],["today",usd(s.day_pnl)],["fees paid",usd(s.fees)]],s.mode==="live"?"Real money on your exchange.":"Fake money. Nothing real is at stake."];
-  if(id.startsWith("s:")){const x=(s.strategies||[]).find(v=>"s:"+v.name===id);if(!x)return null;return [x.name,[["doing now",esc(x.note||"watching")]].concat(Object.entries(x).filter(e=>!["name","note"].includes(e[0])).map(e=>[esc(e[0]),esc(e[1])])),STRAT[x.name]||""]}
+  const live=s.feed==="live",r=s.risk,fc=s.fc||{},mx=s.regime.mix||{},model=D&&D.source==="model",F=s.flow||{},st=s.strategies||[],od=(s.orders||[]).slice(0,8);
+  gn("feed",{label:live?s.venue+" prices":"practice market",ax:.06,ay:.4,r:16,col:C.cy});
+  gn("regime",{label:"regime",sub:s.regime.state,ax:.25,ay:.03,r:13,col:mx.panic>.5?C.down:mx.trend>.5?C.up:"#8fa3b8"});
+  gn("score",{label:"forecasters",sub:s.score_live?"tilt "+pct(s.score_tilt,1):"off",ax:.25,ay:.5,r:12,col:s.score_live?(s.score_tilt>0?C.up:s.score_tilt<0?C.down:C.dim):C.dim});
+  gn("model",{label:"Kronos",sub:model?Math.round(D.pUp*100)+"% of paths up":(fc.state||"off"),ax:.4,ay:.88,r:13,shadow:1,col:model?(D.pUp>=.5?C.up:C.down):C.dim});
+  gn("lab",{label:"strategy lab",sub:LAB&&LAB.gen?"round "+LAB.gen:"waiting",ax:.62,ay:.9,r:12,shadow:1,col:"#9fb0c3"});
+  st.forEach((x,i)=>gn("s:"+x.name,{label:x.name,sub:"",ax:.46,ay:st.length===1?.3:.08+i*.4/Math.max(1,st.length-1),r:13,col:C.cy}));
+  gn("risk",{label:"risk engine",sub:r.halted?"halted":r.paused?"paused":"clear",ax:.66,ay:.28,r:18,col:r.halted?C.down:r.paused?C.warn:C.up,hub:1});
+  od.forEach((o,i)=>gn("o:"+i,{label:(o.side==="buy"?"bid ":"sell ")+Math.round(o.price||0).toLocaleString(),ax:.83,ay:(i+1)/(od.length+1)*.6,r:5,col:o.side==="buy"?C.up:C.warn,sm:1}));
+  gn("acct",{label:s.mode==="live"?s.venue+" account":"practice account",ax:.95,ay:.28,r:14,right:1,col:C.ink});
+  const E=[["feed","regime"],["feed","score"],["feed","model",1],["feed","lab",1],["risk","acct"]];
+  st.forEach(x=>{const k="s:"+x.name;E.push(["feed",k],["regime",k],["score",k],[k,"risk"])});od.forEach((o,i)=>E.push(["risk","o:"+i],["o:"+i,"acct"]));
+  for(const k in Gs.nodes){const n=Gs.nodes[k];if(!n.alive){delete Gs.nodes[k];continue}if(!n.sm){const d=inner(k);n.steps=d?d.steps:[]}}
+  Gs.edges=E;if(Gs.focus&&!Gs.nodes[Gs.focus])Gs.focus=null;
+  /* dots: one per real event since the last snapshot */
+  const P=Gs.prev,lastR=(s.inner&&s.inner.risk&&s.inner.risk.last)||{};Gs.prev={...F,price:s.price,size:s.regime.size_mult,state:s.regime.state,tilt:s.score_tilt,made:fc.made,gen:LAB?LAB.gen:0};
+  if(s.price!=null){if(P&&P.price!=null&&s.price!==P.price){pxFlash=performance.now();pxDir=s.price>P.price?1:-1}PX.push(s.price);if(PX.length>300)PX.shift()}
+  if(!P||F.ticks<P.ticks)return;
+  const d=k=>Math.max(0,(F[k]||0)-(P[k]||0)),dir=s.price>P.price?C.up:s.price<P.price?C.down:"rgba(159,176,195,.85)",from=Gs.nodes["s:"+lastR.strategy]?"s:"+lastR.strategy:st[0]?"s:"+st[0].name:null,ipush=(key,n,col,end)=>{if(Gs.focus){const q=inner(Gs.focus);if(q&&q.flow===key)for(let i=0;i<Math.min(n,4);i++)Gs.ip.push({u:-i*.5,end:end==null?q.steps.length-1-(q.steps[q.steps.length-1].side?1:0):end,col})}};
+  const nt=d("ticks");if(nt){emit("feed","regime",dir,nt,"price update");st.forEach(x=>emit("feed","s:"+x.name,dir,nt,"price update, read by the strategy"));emit("acct","risk","rgba(159,176,195,.6)",nt,"account value checked against today's loss cap");ipush("ticks",nt,dir)}
+  const ne=d("evals");if(ne){const q=Gs.focus&&inner(Gs.focus);ipush("evals",1,dir,q&&q.flow==="evals"&&q.end?q.end():null)}
+  if(d("score_checks")){emit("feed","score",C.cy,1,"price checked against the open analyst calls");ipush("score_checks",1,C.cy)}
+  if(d("candles")){emit("feed","model",C.cy,4,"hourly prices refreshed");emit("feed","lab",C.cy,4,"hourly prices refreshed")}
+  if(P.size!==s.regime.size_mult||P.state!==s.regime.state)st.forEach(x=>emit("regime","s:"+x.name,C.warn,4,"trade size changed to x"+s.regime.size_mult.toFixed(2)));
+  if(P.tilt!==s.score_tilt)st.forEach(x=>emit("score","s:"+x.name,C.up,3,"size tilt changed to "+pct(s.score_tilt,1)));
+  const nc=d("checks"),np=d("placed"),nr=d("refused"),nf=d("fills");
+  if(nc&&from){emit(from,"risk",C.cy,nc,"order asking: "+(lastR.side||"")+" "+usd0(lastR.usd));Gs.nodes.risk.flash=1;const q=inner("risk");ipush("checks",nc,lastR.ok?C.up:C.down,lastR.ok?8:q.end(lastR))}
+  if(np)emit("risk",od.length?"o:"+(od.length-1):"acct",C.up,np,"order approved");
+  if(nr&&from)emit("risk",from,C.down,nr,"order refused: "+(lastR.why||""));
+  if(nf){const f=(s.fills||[])[0];emit(od.length?"o:0":"risk","acct",f&&f.side==="buy"?C.up:C.warn,nf*2,"trade filled"+(f?": "+f.side+" at "+usd0(f.price):""));Gs.nodes.acct.flash=1}
+  if(d("reactions"))Gs.nodes.risk.flash=1;
+  if(d("forecasts")||P.made!==fc.made){if(Gs.nodes.model)Gs.nodes.model.burst=1;ipush("forecasts",3,C.cy)}
+  if(LAB&&P.gen!==LAB.gen){if(Gs.nodes.lab)Gs.nodes.lab.burst=1;ipush("lab",4,"#9fb0c3")}}
+const ELBL={"feed>regime":"Price updates going to the regime detector","feed>score":"The price, checked against open analyst calls once a minute","feed>model":"Hourly prices for the forecast model (shadow)","feed>lab":"Hourly prices for the strategy lab (test only)","risk>acct":"Approved orders going out, and the account value coming back for the daily-loss watch"};
+function edgeLabel(a,b){return ELBL[a+">"+b]||(a==="feed"?"Price updates read by "+b.slice(2):a==="regime"?"Trade-size multiplier for "+b.slice(2):a==="score"?"Size tilt for "+b.slice(2):b==="risk"?"Orders from "+a.slice(2)+" asking the risk engine":a==="risk"?"An approved order resting on the book":"A resting order filling into the account")}
+function nodeDetail(id){const d=inner(id);if(d)return [d.title,d.steps.filter(x=>!x.side).slice(-4).map(x=>[esc(x.label),esc(x.val)]),d.note];const s=S;
   if(id.startsWith("o:")){const o=(s.orders||[])[+id.slice(2)];if(!o)return null;const tp=touchProb(o.price);return ["Resting "+o.side+" order",[["price",usd(o.price)],["value",usd(o.qty*o.price)],["from price now",pct(o.price/s.price-1,2)],["placed by",esc(o.strategy)+" "+esc(o.tag)]].concat(tp!=null&&o.side==="buy"?[["model paths that reach it",Math.round(tp*100)+"%"]]:[]),"Waits on the exchange's book and fills only if the market trades to this price."]}
   return null}
-function renderNode(){}
-function nodeAt(x,y){let best=null,bd=1e9;for(const k in Gs.nodes){const n=Gs.nodes[k],dd=Math.hypot(n.x-x,n.y-y);if(dd<n.r+10&&dd<bd){bd=dd;best=n}}return best}
-(()=>{const c=$("cGraph");let dr=null;
-  c.addEventListener("pointerdown",e=>{const r=c.getBoundingClientRect(),n=nodeAt(e.clientX-r.left,e.clientY-r.top);if(!n)return;dr={n,sx:e.clientX,sy:e.clientY,moved:false};c.setPointerCapture(e.pointerId)});
-  c.addEventListener("pointermove",e=>{if(!dr)return;if(!dr.moved&&Math.hypot(e.clientX-dr.sx,e.clientY-dr.sy)<4)return;dr.moved=true;const r=c.getBoundingClientRect(),ax=clamp((e.clientX-r.left)/r.width,.03,.97),ay=clamp((e.clientY-r.top-14)/(r.height-80),0,1);
+function nodeAt(x,y){let best=null,bd=1e9;for(const k in Gs.nodes){const n=Gs.nodes[k],dd=Math.hypot(n.x-x,n.y-y);if(dd<n.r+9&&dd<bd){bd=dd;best=n}}return best}
+(()=>{const c=$("cGraph");let dr=null;const pt=e=>{const r=c.getBoundingClientRect(),k=r.width?c.clientWidth/r.width:1;return [(e.clientX-r.left)*k,(e.clientY-r.top)*k]};
+  c.addEventListener("pointerdown",e=>{if(Gs.focus)return;const [x,y]=pt(e),n=nodeAt(x,y);if(!n)return;dr={n,sx:e.clientX,sy:e.clientY,moved:false};c.setPointerCapture(e.pointerId)});
+  c.addEventListener("pointermove",e=>{if(!dr)return;if(!dr.moved&&Math.hypot(e.clientX-dr.sx,e.clientY-dr.sy)<4)return;dr.moved=true;const [x,y]=pt(e),ax=clamp(x/c.clientWidth,.03,.97),ay=clamp((y-22)/(c.clientHeight-74),0,1);
     NO[dr.n.id]=[ax-dr.n.bx,ay-dr.n.by];dr.n.ax=ax;dr.n.ay=ay});
   const end=()=>{if(dr&&dr.moved){LS.set("nodes",NO);gSkip=true;setTimeout(()=>gSkip=false,50)}dr=null};c.addEventListener("pointerup",end);c.addEventListener("pointercancel",end)})();
-function drawGraph(t,dt){const c0=cv("cGraph");if(!c0)return;const [g,w,h]=c0;if(!S.ready)return;const N=Gs.nodes,hv=hov("cGraph"),ck=take("cGraph");
-  const gw=w;for(const k in N){const n=N[k],wob=RM?0:1;n.x=n.ax*gw+Math.sin(t*.5+n.ph)*5*wob;n.y=14+n.ay*(h-80)+Math.cos(t*.4+n.ph*1.7)*4*wob;n.flash*=.95}
-  const hn=hv?nodeAt(hv.x,hv.y):null,focus=hn?hn.id:NODE;$("cGraph").style.cursor=hn?"pointer":"crosshair";
-  if(ck&&!gSkip){const n=nodeAt(ck.x,ck.y);if(n){const r=$("cGraph").getBoundingClientRect();openZoom("n:"+n.id,{left:r.left+n.x-n.r,top:r.top+n.y-n.r,width:n.r*2,height:n.r*2},ck.cx,ck.cy)}}
-  Gs.edges.forEach(([a,b,dash])=>{const A=N[a],B=N[b];if(!A||!B)return;const on=focus&&(a===focus||b===focus);g.strokeStyle=on?"rgba(53,200,255,.85)":focus?"rgba(111,127,147,.14)":"rgba(111,127,147,.28)";g.lineWidth=on?1.6:1;g.setLineDash(dash?[3,5]:[]);g.beginPath();g.moveTo(A.x,A.y);g.lineTo(B.x,B.y);g.stroke();
-    if(!RM&&Math.random()<dt*(a==="feed"?.9:.35)*(on?3:1))emit(a,b,on?C.cy:"rgba(159,176,195,.7)",1,.35)});
-  g.setLineDash([]);g.lineWidth=1;
-  Gs.parts=Gs.parts.filter(p=>{p.p+=p.v*dt;const A=N[p.a],B=N[p.b];if(!A||!B||p.p>=1)return false;if(p.p<0)return true;
-    const x=A.x+(B.x-A.x)*p.p,y=A.y+(B.y-A.y)*p.p;g.beginPath();g.arc(x,y,1.9,0,7);g.fillStyle=p.col;g.shadowColor=p.col;g.shadowBlur=8;g.fill();g.shadowBlur=0;return true});
-  if(Gs.parts.length>600)Gs.parts.splice(0,Gs.parts.length-600);
-  const M=N.model,se=sel();if(M&&D&&D.source==="model")D.finals.forEach((v,i)=>{const a=i*2.39996+t*.12,rr=20+((i*37)%19),on=!se||se.set.has(i);g.beginPath();g.arc(M.x+Math.cos(a)*rr,M.y+Math.sin(a)*rr*.78,on&&se?2.6:1.7,0,7);g.fillStyle=v>0?C.up:C.down;g.globalAlpha=on?.8:.12;g.fill();g.globalAlpha=1});
-  const Sc=N.score;if(Sc)(S.score||[]).slice(0,14).forEach((x,i)=>{const calls=(S.open_calls||[]).filter(c=>c.source===x.source),a=i*.45-t*.08,rr=19+(i%3)*8;
-    const col=!calls.length?C.dim:calls.some(c=>c.kind==="touch_above")&&!calls.some(c=>c.kind==="touch_below")?C.up:calls.some(c=>c.kind==="touch_below")&&!calls.some(c=>c.kind==="touch_above")?C.down:C.warn;
-    g.beginPath();g.arc(Sc.x+Math.cos(a)*rr,Sc.y+Math.sin(a)*rr*.7,1+x.weight*2.6,0,7);g.fillStyle=col;g.globalAlpha=.8;g.fill();g.globalAlpha=1});
-  for(const k in N){const n=N[k],on=n.id===focus,sel2=n.id===NODE;g.beginPath();g.arc(n.x,n.y,n.r+(on?2:0),0,7);g.fillStyle=C.bg;g.fill();g.strokeStyle=n.col;g.lineWidth=n.hub?2.2:1.6;g.shadowColor=n.col;g.shadowBlur=10+n.flash*26+(on?14:0);g.stroke();g.shadowBlur=0;
-    if(sel2){g.beginPath();g.arc(n.x,n.y,n.r+6,0,7);g.strokeStyle=C.cy;g.lineWidth=1;g.setLineDash([3,3]);g.stroke();g.setLineDash([])}
-    if(n.hub){const pr=RM?0:(t*.7)%1;g.beginPath();g.arc(n.x,n.y,n.r+4+pr*14,0,7);g.strokeStyle=n.col;g.globalAlpha=.5*(1-pr);g.stroke();g.globalAlpha=1;g.beginPath();g.arc(n.x,n.y,4,0,7);g.fillStyle=n.col;g.fill()}
-    else{g.beginPath();g.arc(n.x,n.y,Math.max(1.5,n.r*.35),0,7);g.fillStyle=n.col;g.fill()}
-    if(n.sm){if(gw>560)label(g,n.label,n.x-8,n.y+3,on?C.ink:C.dim,"right",9.5)}else{const o=n.off||0,half=n.label.length*3.3,lx=n.right?Math.min(n.x+n.r,gw-2):clamp(n.x,half+2,gw-half-2),al=n.right?"right":"center";label(g,n.label,lx,n.y+n.r+13+o,C.ink,al,10.5);if(n.sub)label(g,n.sub,lx,n.y+n.r+25+o,n.col,al,9.5)}}
-  if(hn){const d=nodeDetail(hn.id);if(d)tipHTML=`<b>${esc(d[0])}</b>`+d[1].slice(0,4).map(r=>trow(r[0],r[1])).join("")+`<i>Click to zoom in. Drag to move it.</i>`}}
+function segDist(px,py,a,b){const dx=b.x-a.x,dy=b.y-a.y,l=dx*dx+dy*dy||1,u=clamp(((px-a.x)*dx+(py-a.y)*dy)/l,0,1);return Math.hypot(px-a.x-dx*u,py-a.y-dy*u)}
+function drawGraph(t,dt){const c0=cv("cGraph");if(!c0)return;const [g,w,h]=c0;if(!S.ready)return;const N=Gs.nodes,hv=hov("cGraph"),ck=take("cGraph"),Q=LQ;
+  for(const k in N){const n=N[k];n.x=n.ax*w;n.y=22+n.ay*(h-74);n.flash*=.93;n.burst*=.95;n.hit=(n.hit||0)*.9}
+  Gs.z+=((Gs.focus?1:0)-Gs.z)*(RM?1:Math.min(1,dt*7));if(Gs.z<.004)Gs.z=0;if(Gs.z>.996)Gs.z=1;const z=Gs.z,fn=N[Gs.focus||Gs.last];
+  if(z<1){g.save();if(z>0&&fn){const k=1+z*z*7;g.translate(fn.x,fn.y);g.scale(k,k);g.translate(-fn.x,-fn.y);g.globalAlpha=1-z}
+    const inOuter=z<.5,hn=hv&&inOuter?nodeAt(hv.x,hv.y):null;let he=null;if(hv&&inOuter&&!hn){let bd=7;Gs.edges.forEach(e=>{const A=N[e[0]],B=N[e[1]];if(!A||!B)return;const dd=segDist(hv.x,hv.y,A,B);if(dd<bd){bd=dd;he=e}})}
+    $("cGraph").style.cursor=hn||he?"pointer":"default";const focus=hn?hn.id:null;
+    Gs.edges.forEach(e=>{const A=N[e[0]],B=N[e[1]];if(!A||!B)return;const on=e===he||(focus&&(e[0]===focus||e[1]===focus));g.strokeStyle=on?"rgba(53,200,255,.9)":focus||he?"rgba(111,127,147,.12)":"rgba(111,127,147,.3)";g.lineWidth=on?1.6:1;g.setLineDash(e[2]?[3,5]:[]);g.beginPath();g.moveTo(A.x,A.y);g.lineTo(B.x,B.y);g.stroke()});
+    g.setLineDash([]);g.lineWidth=1;
+    Gs.parts=Gs.parts.filter(p=>{p.p+=p.v*dt;const A=N[p.a],B=N[p.b];if(!A||!B||p.p>=1)return false;if(p.p<0)return true;
+      const x=A.x+(B.x-A.x)*p.p,y=A.y+(B.y-A.y)*p.p;g.beginPath();g.arc(x,y,2,0,7);g.fillStyle=p.col;g.shadowColor=p.col;g.shadowBlur=8;g.fill();g.shadowBlur=0;return true});
+    if(Gs.parts.length>500)Gs.parts.splice(0,Gs.parts.length-500);
+    const M=N.model,se=sel();if(M&&D&&D.source==="model"){const sp=Math.max(...D.finals.map(Math.abs))||1;D.finals.forEach((v,i)=>{const a=i*2.39996,rr=M.r+7+Math.abs(v)/sp*16+M.burst*8,on=!se||se.set.has(i);g.beginPath();g.arc(M.x+Math.cos(a)*rr,M.y+Math.sin(a)*rr*.8,on&&se?2.6:1.6,0,7);g.fillStyle=v>0?C.up:C.down;g.globalAlpha*=on?.8:.15;g.fill();g.globalAlpha=z>0&&fn?1-z:1})}
+    const Sc=N.score;if(Sc)(S.score||[]).slice(0,14).forEach((x,i)=>{const calls=(S.open_calls||[]).filter(c=>c.source===x.source),a=i*.449,rr=Sc.r+7+(i%3)*6+Sc.hit*4;
+      const col=!calls.length?C.dim:calls.some(c=>c.kind==="touch_above")&&!calls.some(c=>c.kind==="touch_below")?C.up:calls.some(c=>c.kind==="touch_below")&&!calls.some(c=>c.kind==="touch_above")?C.down:C.warn;
+      g.beginPath();g.arc(Sc.x+Math.cos(a)*rr,Sc.y+Math.sin(a)*rr*.75,1+x.weight*2.4,0,7);g.fillStyle=col;g.fill()});
+    for(const k in N){const n=N[k],on=n.id===focus,R=n.r+n.hit*2.5+(on?2:0);g.beginPath();g.arc(n.x,n.y,R,0,7);g.fillStyle=C.bg;g.fill();g.strokeStyle=n.col;g.lineWidth=n.hub?2.2:1.6;g.setLineDash(n.shadow?[3,3]:[]);g.shadowColor=n.col;g.shadowBlur=8+n.flash*26+n.hit*10+(on?12:0);g.stroke();g.shadowBlur=0;g.setLineDash([]);
+      if(n.flash>.03){g.beginPath();g.arc(n.x,n.y,R+4+(1-n.flash)*16,0,7);g.strokeStyle=n.col;g.globalAlpha*=n.flash*.7;g.stroke();g.globalAlpha=z>0&&fn?1-z:1}
+      const st=n.steps||[];if(st.length){const m=st.length;st.forEach((q,i)=>{const a=-1.5708+i/m*6.2832,rr=R*.58;g.beginPath();g.arc(n.x+Math.cos(a)*rr,n.y+Math.sin(a)*rr,q.st==="bad"||q.st==="warn"?2.4:1.7,0,7);g.fillStyle=STC[q.st]||C.dim;g.fill()});g.beginPath();g.arc(n.x,n.y,1.6+n.hit*2,0,7);g.fillStyle=n.col;g.fill()}
+      else{g.beginPath();g.arc(n.x,n.y,Math.max(1.5,n.r*.4),0,7);g.fillStyle=n.col;g.fill()}
+      if(n.sm){if(w>560&&(on||!Q))label(g,n.label,n.x-9,n.y+3,on?C.ink:C.dim,"right",9.5)}else{const off=k==="model"?22:k==="score"?18:0,half=n.label.length*3.3,lx=n.right?Math.min(n.x+n.r,w-2):clamp(n.x,half+2,w-half-2),al=n.right?"right":"center";label(g,n.label,lx,n.y+n.r+13+off,on?C.ink:"#b9c6d6",al,10.5,1);if(n.sub&&(on||!Q))label(g,n.sub,lx,n.y+n.r+25+off,n.col,al,9.5,1)}}
+    if(hn&&z===0){const d=nodeDetail(hn.id);if(d)tipHTML=`<b>${esc(d[0])}</b>`+d[1].slice(0,4).map(r=>trow(r[0],r[1])).join("")+`<i>${hn.sm?"Click to zoom in.":"Click to go inside it. Drag to move it."}</i>`}
+    else if(he&&z===0){const e=Gs.esum[he[0]+">"+he[1]],e2=Gs.esum[he[1]+">"+he[0]],tot=(e?e.n:0)+(e2?e2.n:0),la=e&&(!e2||e.t>=e2.t)?e:e2;tipHTML=`<b>${edgeLabel(he[0],he[1])}</b>`+trow("dots since you opened this page",tot.toLocaleString())+(la?trow("the last one",esc(la.what))+trow("how long ago",Math.max(0,(Date.now()-la.t)/1000).toFixed(1)+"s"):"")+`<i>Each dot is one real event${he[2]?". Dashed: shadow only, no line to orders":""}.</i>`}
+    if(ck&&!gSkip&&z===0){const n=nodeAt(ck.x,ck.y);if(n){if(n.sm){const r=$("cGraph").getBoundingClientRect();openZoom("n:"+n.id,{left:r.left+n.x-n.r,top:r.top+n.y-n.r,width:n.r*2,height:n.r*2},ck.cx,ck.cy)}else{Gs.focus=Gs.last=n.id;Gs.ip=[]}}}
+    g.restore()}
+  if(z>0)drawInner(g,w,h,t,dt,z,z>=.5?hv:null,z>=.5?ck:null)}
+function drawInner(g,w,h,t,dt,a,hv,ck){const id=Gs.focus||Gs.last,d=inner(id);if(!d){Gs.focus=null;return}const all=d.steps,side=all.filter(q=>q.side),steps=all.filter(q=>!q.side),n=steps.length,rows=n>5&&w<820?2:1,per=Math.ceil(n/rows),pad=Math.min(70,w*.09);
+  g.save();g.globalAlpha=a;const P=steps.map((q,i)=>{const row=Math.floor(i/per),col=i%per,cnt=row===rows-1?n-per*(rows-1):per;return [pad+(cnt===1?.5:col/(cnt-1))*(w-2*pad),rows===1?h*.46+(i%2?16:-16):h*(row?.66:.3)+(col%2?10:-10)]});
+  side.forEach((q,i)=>P.push([w-pad-i*90,h-46]));const pts=steps.concat(side);
+  label(g,"‹ signal graph",12,18,C.cy,"left",11,1);label(g,d.title+(d.shadow?"  ·  shadow":""),128,18,C.ink,"left",11.5,1);label(g,d.note,w/2,h-8,C.dim,"center",10.5);
+  for(let i=0;i<n-1;i++){g.strokeStyle="rgba(111,127,147,.4)";g.lineWidth=1;g.setLineDash(d.shadow&&i===n-2?[3,5]:[]);g.beginPath();g.moveTo(P[i][0],P[i][1]);g.lineTo(P[i+1][0],P[i+1][1]);g.stroke()}g.setLineDash([]);
+  Gs.ip=Gs.ip.filter(p=>{p.u+=dt*2.2;if(p.u>=p.end)return false;if(p.u<0)return true;const i=Math.floor(p.u),f=p.u-i,A=P[i],B=P[Math.min(n-1,i+1)];g.beginPath();g.arc(A[0]+(B[0]-A[0])*f,A[1]+(B[1]-A[1])*f,2.6,0,7);g.fillStyle=p.col;g.shadowColor=p.col;g.shadowBlur=9;g.fill();g.shadowBlur=0;return true});
+  let hs=-1;if(hv)P.forEach((p,i)=>{if(Math.hypot(p[0]-hv.x,p[1]-hv.y)<24)hs=i});
+  pts.forEach((q,i)=>{const p=P[i],c=STC[q.st]||C.dim,on=i===hs;g.beginPath();g.arc(p[0],p[1],on?17:14,0,7);g.fillStyle=C.bg;g.fill();g.strokeStyle=c;g.lineWidth=on?2.4:1.7;g.shadowColor=c;g.shadowBlur=on?16:8;g.stroke();g.shadowBlur=0;g.beginPath();g.arc(p[0],p[1],q.st==="idle"?2:4,0,7);g.fillStyle=c;g.fill();
+    label(g,q.label,p[0],p[1]-22,on?C.ink:"#b9c6d6","center",10.5,1);label(g,String(q.val),p[0],p[1]+30,c,"center",10,1)});
+  $("cGraph").style.cursor=hs>=0||(hv&&hv.y<28&&hv.x<100)?"pointer":"default";
+  if(hs>=0){const q=pts[hs];tipHTML=`<b>${esc(q.label)}</b>`+trow("right now",esc(q.val))+`<i>${esc(q.rule)}</i>`}
+  if(ck&&!gSkip){if(hs>=0){const r=$("cGraph").getBoundingClientRect();openZoom("i:"+id+":"+hs,{left:r.left+P[hs][0]-14,top:r.top+P[hs][1]-14,width:28,height:28},ck.cx,ck.cy)}else Gs.focus=null}
+  g.restore()}
+
 
 /* ================= loop ================= */
 let lastT=0;
 function frame(ms){const t=ms/1000,dt=Math.min(.1,Math.max(0,t-lastT));lastT=t;RAFQ=false;CUR=NEXT;NEXT={sel:MH?MH.sel:null,hour:MH?MH.hour:null};tipHTML="";
-  if(S.ready&&!document.hidden){try{tweens(ms);drawBg(t,dt);drawCurve(t);drawReg(t);drawLat(t);drawRidge(t);drawPrice(t);drawGraph(t,dt);drawLab(t,dt);drawPaths(t);markHour()}catch(e){console.error(e)}}
+  if(S.ready&&!document.hidden){try{tweens(ms);drawBg(t,dt);LQ=quiet("acct");drawCurve(t);LQ=quiet("reg");drawReg(t);LQ=quiet("lat");drawLat(t);LQ=quiet("ridge");drawRidge(t);LQ=quiet("price");drawPrice(t);LQ=quiet("graph");drawGraph(t,dt);LQ=quiet("lab");drawLab(t,dt);LQ=quiet("paths");drawPaths(t);LQ=false;markHour()}catch(e){console.error(e)}}
   CK=null;if(HV&&!BUSY)showTip(ZOOM?"":tipHTML);
   if(!RM)requestAnimationFrame(frame)}
 async function tick(){try{S=await (await fetch("/api/state")).json();
