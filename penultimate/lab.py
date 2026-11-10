@@ -181,6 +181,38 @@ def walk_forward(pool: List[List[float]], live: List[float]) -> dict:
             "ahead_in_hindsight": sum(sum(w) > 0 for w in pool), "curve": {"picks": cum(picks), "live": cum(lv), "average": cum(avg)}}
 
 
+def hold_table(candles: List[list], maker: float = 0.005, band: float = 0.10, month: int = 720) -> dict:
+    """What simply holding would have done over the whole history, for several shares of a $100 account: no prediction,
+    one buy at the start, and a move back to the chosen share only when it drifts more than `band` away, at most monthly."""
+    rows = []
+    for pct in (25, 50, 75, 100):
+        cash, px0 = 100.0, candles[0][4]
+        buy = 100.0 * pct / 100
+        qty, cash, fees, trades, last = buy / px0, cash - buy * (1 + maker), buy * maker, 1, 0
+        peak, dd, curve, wk_prev, worst, best = 100.0, 0.0, [], 100.0, 0.0, 0.0
+        for h, r in enumerate(candles):
+            px = r[4]
+            eq = cash + qty * px
+            if pct < 100 and h - last >= month and abs(qty * px / eq - pct / 100) > band:
+                move = eq * pct / 100 - qty * px                    # dollars of coin to buy (+) or sell (-)
+                qty += move / px
+                cash -= move + abs(move) * maker
+                fees += abs(move) * maker
+                trades, last = trades + 1, h
+                eq = cash + qty * px
+            peak = max(peak, eq)
+            dd = min(dd, eq / peak - 1)
+            if h % WEEK == WEEK - 1:
+                chg = eq / wk_prev - 1
+                worst, best, wk_prev = min(worst, chg), max(best, chg), eq
+                curve.append(round(eq, 2))
+        rows.append({"pct": pct, "end": round(eq, 2), "low": round(min(curve), 2) if curve else 100.0, "drawdown": round(dd, 4),
+                     "worst_week": round(worst, 4), "best_week": round(best, 4), "fees": round(fees, 2), "trades": trades, "curve": curve})
+    px = [r[4] for r in candles]
+    return {"weeks": len(candles) // WEEK, "from": candles[0][0], "to": candles[-1][0], "rows": rows,
+            "price": {"start": px[0], "end": px[-1], "high": max(px), "low": min(px)}}
+
+
 def score(g: dict, eps: List[dict], fees: dict) -> dict:
     tr, te, wins, ntr, each = [], [], 0, 0, []
     for e in eps:
@@ -221,6 +253,7 @@ class Lab:
         self.runs = {"pos": 0, "live": 0, "top_pos": 0, "top_live": 0}      # rounds in a row the lab's picks made money / beat the live settings, on unseen history
         self.deep = False                       # True once it is learning from years of history instead of days
         self.proof: Optional[dict] = None       # the walk-forward verdict (see walk_forward)
+        self.holds: Optional[dict] = None       # what simply holding would have done (see hold_table)
         self._pw: List[List[float]] = []        # weekly results of the proof variants replayed so far
         self._pw_live: Optional[tuple] = None
         self._pw_key = None
@@ -324,6 +357,7 @@ class Lab:
         key = (hist[-1][0] // (WEEK * 3600), len(hist) // WEEK)
         if key != self._pw_key:                                     # a new week of prices: replay again
             self._pw, self._pw_live, self._pw_key = [], None, key
+            self.holds = hold_table(hist, self.fees["maker"])
             if self.proof:
                 self.proof = {**self.proof, "stale": True}
         if len(self._pw) >= PROOF_POOL:
@@ -426,7 +460,7 @@ class Lab:
                              round(self.live_score["test"], 3) if self.live_score else 0.0]}
             return {"state": self.state, "detail": self.detail_text, "gen": self.gen, "gens": self.gens, "race": race, "land": land,
                     "progress": {"hist": self.hist, "need": NEED_ROUNDS, **self.runs},
-                    "proof": self.proof, "proof_progress": round(len(self._pw) / PROOF_POOL, 3), "deep": self.deep,
+                    "holds": self.holds, "proof": self.proof, "proof_progress": round(len(self._pw) / PROOF_POOL, 3), "deep": self.deep,
                     "history_hours": len(getattr(self.hub, "history", []) or []),
                     "best": best["id"] if best else None, "live": {k: x for k, x in (self.live_score or {}).items() if k != "each"} or None,
                     "episodes": len(self.eps), "train": n_tr, "test": len(self.eps) - n_tr,

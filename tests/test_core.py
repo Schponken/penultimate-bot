@@ -368,3 +368,58 @@ def test_state_survives_a_restart(tmp_path):
     assert e2.broker.cash == pytest.approx(cash)
     assert {k: v.qty for k, v in e2.broker.positions.items() if abs(v.qty) > 1e-12} == pytest.approx(pos)
     assert len(e2.strategies[0].lots) == lots
+
+
+def test_hold_the_market_buys_to_the_chosen_share_then_leaves_it_alone(tmp_path):
+    from penultimate.config import load_config, load_limits
+    from penultimate.engine import Engine
+    from penultimate.feeds import SimFeed
+    from penultimate.store import Store
+
+    def make():
+        cfg = load_config()
+        cfg["feed"] = "sim"
+        cfg["sim"]["real_delay"] = 0
+        return Engine(cfg, load_limits(), feed=SimFeed(cfg, cfg["spot_symbol"], cfg["perp_symbol"]), store=Store(tmp_path / "t.db"), data_dir=tmp_path)
+    eng = make()
+    eng.run(max_ticks=30)
+    assert eng.hold.pct == 0 and eng.hold.view()["inner"]["pct"] == 0          # off until you choose
+    eng.commands.put(("hold", (50, 1)))
+    eng.run(max_ticks=600)
+    spot = eng.spot
+    share = eng.broker.position(spot).qty * eng.marks[spot] / eng.broker.equity(eng.marks)
+    assert 0.44 < share < 0.56 and eng.hold.built                               # half the account, bought in chunks inside the order cap
+    buys = [f for f in eng.fills if f["strategy"] == "hold" and f["side"] == "buy"]
+    assert len(buys) >= 3 and all(f["qty"] * f["price"] <= eng.limits.max_order_usd for f in buys)
+    assert not any(o.side == "buy" and o.strategy == "deep_bids" for o in eng.broker.open_orders)     # the dip-buying bids stand down
+    eng.run(max_ticks=400)
+    hold_fills = [f for f in eng.fills if f["strategy"] == "hold"]
+    assert len(hold_fills) == len(buys)                                         # once built it does not churn
+    eng.save_state()
+    eng2 = make()                                                               # a restart remembers the choice
+    assert eng2.hold.pct == 50 and eng2.hold.built
+    eng2.commands.put(("hold", (0, 1)))
+    eng2.run(max_ticks=600)
+    assert eng2.broker.position(spot).qty * eng2.marks[spot] < 12 and eng2.hold.pct == 0     # turned off: it sells what it holds
+
+    eng3 = make()
+    eng3.commands.put(("hold", (60, 4)))                                        # spread over four weeks: only the first quarter now
+    eng3.run(max_ticks=600)
+    v = eng3.hold.view()
+    assert v["parts"] == 1 and not v["built"] and v["value"] < 0.2 * eng3.broker.equity(eng3.marks) + 12 and v["next_part"]
+
+
+def test_hold_table_reports_what_holding_did_including_the_falls():
+    from penultimate.lab import hold_table
+    rows = []
+    px = 100.0
+    for i in range(168 * 30):
+        px *= 1.0004 if i < 168 * 20 else 0.9993                               # a long rise, then a long fall
+        rows.append([1_700_000_000 + i * 3600, px, px * 1.001, px * 0.999, px, 1.0])
+    t = hold_table(rows)
+    by = {r["pct"]: r for r in t["rows"]}
+    assert t["weeks"] == 30 and len(by[100]["curve"]) == 30
+    assert abs(by[100]["end"] - (100 * rows[-1][4] / rows[0][4] - 0.5)) < 0.01  # all in: exactly the market, less the one fee
+    assert max(by[100]["curve"]) > max(by[50]["curve"]) > max(by[25]["curve"]) > 100     # more held, more of the rise...
+    assert by[100]["drawdown"] < by[50]["drawdown"] < by[25]["drawdown"] < 0    # ...and more of the fall
+    assert by[100]["trades"] == 1 and by[100]["fees"] == 0.5

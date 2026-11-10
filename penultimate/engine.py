@@ -17,11 +17,12 @@ from .models import Fill, Order, Position, Tick
 from .regime import Regime
 from .risk import RiskEngine
 from .scorekeeper import Scorekeeper
+from .strategies import Hold
 from .store import Store
 from .strategies import REGISTRY
 
 FUNDING_PERIOD = 8 * 3600
-VERSION = "2.1"
+VERSION = "2.2"
 
 
 class Engine:
@@ -88,6 +89,9 @@ class Engine:
             s = REGISTRY[name](params, self)
             s.load_state(self.store.get(f"strategy:{name}:{self.mode}:{cfg['feed']}", {}))
             self.strategies.append(s)
+        self.hold = Hold({}, self)             # hold-the-market: always there, off until a share is chosen on the dashboard
+        self.hold.load_state(self.store.get(f"strategy:hold:{self.mode}:{cfg['feed']}", {}))
+        self.strategies.append(self.hold)
         if self.perp and not any(s.name == "funding_carry" for s in self.strategies):
             self.perp = None                    # nothing uses the futures price, so don't fetch or depend on it
             if hasattr(self.feed, "pairs"):
@@ -166,8 +170,11 @@ class Engine:
             return b.free_cash
         return b.cash - sum(o.qty * (o.price or 0) for o in b.open_orders if o.side == "buy" and ":" not in o.symbol)
 
-    def can_add_risk(self) -> bool:
-        return not self.risk.halted and self.feed.now() >= self.risk.paused_until and not self.gate()
+    def can_add_risk(self, who: str = "") -> bool:
+        ok = not self.risk.halted and self.feed.now() >= self.risk.paused_until
+        if who == "hold":
+            return ok                           # holding the market is not the strategy the proof judged
+        return ok and not self.gate() and self.hold.pct <= 0      # while you hold the market, the dip-buying strategy places nothing new
 
     def gate(self) -> str:
         """With real money: if three years of real prices say the live settings reliably lose, no new buys are placed.
@@ -313,6 +320,17 @@ class Engine:
                     self.risk.day_start_equity = self.broker.equity(self.marks)
                 self.store.set(f"risk:{self.mode}", {**self.risk.to_state(), "v": 3})
                 self.event("control", "resumed by you; today's loss budget starts fresh", now)
+            elif cmd == "hold":
+                pct, weeks = arg
+                self.hold.set(pct, weeks, now)
+                if pct > 0:
+                    for o in list(self.broker.open_orders):         # holding replaces the dip-buying bids
+                        if o.side == "buy" and o.strategy != "hold":
+                            self.broker.cancel(o.id)
+                self.save_state()
+                self.event("control", (f"hold the market: keep {pct:.0f}% of the account in {self.spot.split('/')[0]}, "
+                                       + ("bought in one go" if weeks <= 1 else f"bought in {weeks} weekly parts")) if pct > 0
+                           else "hold the market: turned off, selling what it holds", now)
             elif cmd == "trade_unproven":
                 self.store.set("trade_unproven", bool(arg))
                 self._overruled = bool(arg)
@@ -361,7 +379,7 @@ class Engine:
             why = self.gate() if self.n % 5 == 0 or self._gated else ""
             if why and not self._gated:
                 for o in list(self.broker.open_orders):
-                    if o.side == "buy":
+                    if o.side == "buy" and o.strategy != "hold":
                         self.broker.cancel(o.id)
                 self.event("reaction", f"standing aside with real money: {why}. Resting buys cancelled; anything held is still managed. "
                                        "You can overrule this on the dashboard.", now)
@@ -478,6 +496,7 @@ class Engine:
             "equity": equity, "cash": b.cash, "free_cash": self.free_cash(), "budget": L.max_gross_exposure_usd, "day_pnl": self.risk.day_pnl(equity),
             "total_pnl": equity - start if start else None,
             "gate": {"why": self.gate(), "reason": self.gate_reason(), "overruled": self._overruled},
+            "hold": self.hold.view(),
             "realized": b.realized, "fees": b.fees, "funding": b.funding,
             "positions": [{"symbol": s, "qty": p.qty, "avg": p.avg, "mark": self.marks.get(s, p.avg),
                            "value": p.qty * self.marks.get(s, p.avg)}
@@ -510,7 +529,7 @@ class Engine:
             self._last_status = time.time()
             keep = ("mode", "feed", "venue", "ts", "tick", "price", "equity", "cash", "free_cash", "day_pnl",
                     "total_pnl", "fees", "positions", "regime", "risk", "strategies", "health", "problems", "blocked",
-                    "fc", "version", "gate", "orders")
+                    "fc", "version", "gate", "orders", "hold")
             try:
                 tmp = self.data_dir / "status.json.tmp"
                 tmp.write_text(json.dumps({**{k: snap[k] for k in keep}, "orders": len(snap["orders"]),

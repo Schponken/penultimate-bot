@@ -162,6 +162,15 @@ class Dash:
                 return False, "updates from a repository are not set up on this machine"
             self.updater.request(install=cmd == "update")
             return True, "installing the new version" if cmd == "update" else "checking for a new version"
+        if cmd == "hold":
+            try:
+                pct, weeks = float(body.get("pct")), int(body.get("weeks", 1))
+            except (TypeError, ValueError):
+                return False, "that share was not understood"
+            if not (0 <= pct <= 100) or weeks not in (1, 4, 8):
+                return False, "choose a share from 0 to 100 and a pace of 1, 4 or 8 weeks"
+            eng.commands.put(("hold", (pct, weeks)))
+            return True, f"holding {pct:.0f}% of the account" if pct > 0 else "holding turned off"
         if cmd == "trade_unproven":
             eng.commands.put(("trade_unproven", bool(body.get("on"))))
             return True, "trading anyway" if body.get("on") else "standing aside until something is proven"

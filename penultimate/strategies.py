@@ -256,4 +256,127 @@ class FundingCarry(Strategy):
                           "max_breakeven_periods": self.p.get("max_breakeven_periods"), "notional_usd": self.p.get("notional_usd")}}
 
 
+class Hold(Strategy):
+    """Hold the market: keep a chosen share of the account in the coin and otherwise leave it alone.
+
+    No prediction and no edge: it earns whatever the market does, minus one small fee to get in. It buys with
+    resting orders (the cheaper fee), in one go or in equal weekly parts, and afterwards trades only if the
+    holding has drifted far from the chosen share, at most once a month. Off until you choose a share on the
+    dashboard. It still lives inside the hard limits in limits.yaml."""
+    name = "hold"
+    WEEK = 7 * 86400
+    BAND = 0.10                 # rebalance only when the holding is this far (as a share of the account) from the target
+    REBALANCE_EVERY = 30 * 86400
+    REPRICE_S = 180
+
+    def __init__(self, params: dict, eng):
+        super().__init__(params, eng)
+        self.pct, self.weeks, self.since = 0.0, 1, 0.0
+        self.built, self.last_reb, self.adjust = False, 0.0, False
+        self._last = 0.0
+        self.capped = False
+        self._v: dict = {}
+
+    def set(self, pct: float, weeks: int, now: float) -> None:
+        """Your choice from the dashboard."""
+        pct, weeks = max(0.0, min(100.0, float(pct))), max(1, int(weeks))
+        if self.pct <= 0 < pct:
+            self.since, self.built = now, False                    # starting from nothing: the weekly parts begin now
+        self.adjust = True                                          # you asked for it, so move toward it now (no monthly wait)
+        self.pct, self.weeks = pct, weeks
+        for o in self._mine():
+            self.eng.broker.cancel(o.id)
+
+    def _mine(self) -> List[Order]:
+        return [o for o in self.eng.broker.open_orders if o.strategy == self.name]
+
+    def on_tick(self, tick: Tick) -> None:
+        eng = self.eng
+        if tick.symbol != eng.spot or tick.ts - self._last < 5:
+            return
+        self._last = tick.ts
+        b, mid = eng.broker, tick.mid
+        equity = b.equity(eng.marks)
+        val = b.position(tick.symbol).qty * mid
+        want = equity * self.pct / 100.0
+        target = min(want, eng.limits.max_position_usd * 0.98)     # never more than the hard position limit allows
+        self.capped = target < want - 1.0
+        parts = min(self.weeks, int((tick.ts - self.since) // self.WEEK) + 1) if self.pct > 0 else 0
+        allowed = target if self.built else target * parts / max(1, self.weeks)
+        self._v = {"value": val, "target": target, "allowed": allowed, "parts": parts, "equity": equity,
+                   "next_part": self.since + parts * self.WEEK if self.pct > 0 and not self.built and parts < self.weeks else None}
+        mine = self._mine()
+        for o in mine:                                              # a resting order the market has moved away from is re-priced
+            if tick.ts - o.ts > self.REPRICE_S:
+                b.cancel(o.id)
+        if mine:
+            return
+        small = max(5.0, 0.02 * equity)
+        if self.pct <= 0:
+            if val > small and self.adjust:                         # you turned it off: sell what it holds
+                self._sell(tick, val, val)
+            else:
+                self.adjust = False
+                self.note = "off"
+            return
+        gap = allowed - val
+        if not self.built and val >= target - small:
+            self.built, self.last_reb, self.adjust = True, tick.ts, False
+        if not self.built or self.adjust:
+            if gap > small:
+                return self._buy(tick, gap)
+            if self.adjust and -gap > small:                        # you lowered the share: sell down to it
+                return self._sell(tick, -gap, val)
+            self.adjust = False
+            self.note = (f"holding ${val:,.2f}, part {parts} of {self.weeks} bought" if not self.built
+                         else f"holding ${val:,.2f} ({val / equity:.0%} of the account)")
+            return
+        drift = (val - target) / equity if equity > 0 else 0.0
+        if abs(drift) > self.BAND and tick.ts - self.last_reb > self.REBALANCE_EVERY:
+            self.last_reb = tick.ts
+            self.adjust = True                                      # one move back to the target, then quiet again
+            return
+        self.note = f"holding ${val:,.2f} ({val / equity:.0%} of the account, target {self.pct:.0f}%)"
+
+    def _buy(self, tick: Tick, usd: float) -> None:
+        eng = self.eng
+        if not eng.can_add_risk(self.name):
+            self.note = "waiting: new buys are paused"
+            return
+        usd = min(usd, eng.limits.max_order_usd * 0.98, eng.free_cash() / 1.012)
+        if usd < 2.0:
+            self.note = "waiting for cash"
+            return
+        o = eng.place(Order(tick.symbol, "buy", usd / tick.bid, "limit", tick.bid, self.name, "hold-buy"))
+        self.note = f"buying ${usd:,.2f} with a resting order" if o.status == "open" else f"buy refused: {o.reason}"
+
+    def _sell(self, tick: Tick, usd: float, val: float) -> None:
+        eng = self.eng
+        usd = min(usd, eng.limits.max_order_usd * 0.98)
+        qty = eng.broker.position(tick.symbol).qty * min(1.0, usd / val) if val > 0 else 0.0
+        if qty <= 0:
+            return
+        o = eng.place(Order(tick.symbol, "sell", qty, "limit", tick.ask, self.name, "hold-sell"))
+        self.note = f"selling ${usd:,.2f} with a resting order" if o.status == "open" else f"sell refused: {o.reason}"
+
+    def reset(self) -> None:
+        self.pct, self.built, self.adjust = 0.0, False, False      # an emergency stop sold everything: holding is off until you choose again
+        self.note = "off: stopped by the emergency exit"
+
+    def state(self) -> dict:
+        return {"pct": self.pct, "weeks": self.weeks, "since": self.since, "built": self.built, "last_reb": self.last_reb, "adjust": self.adjust}
+
+    def load_state(self, s: dict) -> None:
+        self.pct, self.weeks, self.since = float(s.get("pct", 0.0)), int(s.get("weeks", 1)), float(s.get("since", 0.0))
+        self.built, self.last_reb, self.adjust = bool(s.get("built")), float(s.get("last_reb", 0.0)), bool(s.get("adjust"))
+
+    def view(self) -> dict:
+        v = self._v
+        return {"name": self.name, "note": self.note, "pct": self.pct, "weeks": self.weeks, "since": self.since, "built": self.built,
+                "value": round(v.get("value", 0.0), 2), "target": round(v.get("target", 0.0), 2), "parts": v.get("parts", 0),
+                "next_part": v.get("next_part"), "last_reb": self.last_reb, "band": self.BAND, "capped": self.capped,
+                "inner": {"pct": self.pct, "weeks": self.weeks, "value": round(v.get("value", 0.0), 2), "target": round(v.get("target", 0.0), 2),
+                          "band": self.BAND, "built": self.built}}
+
+
 REGISTRY = {"deep_bids": DeepBids, "funding_carry": FundingCarry}

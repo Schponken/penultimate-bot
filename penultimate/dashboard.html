@@ -119,7 +119,8 @@ tr.xd td{white-space:normal;text-align:left;background:var(--panel2);padding:2px
 .prow{flex:1;min-height:0;display:flex;gap:16px}.prow .cw{flex:1.55}.goals{flex:1;min-width:260px;overflow:auto;font-size:12.5px}body.narrow .prow{flex-direction:column}body.narrow .prow .cw{min-height:200px}
 .goal{border-radius:5px;margin:0 -6px 2px;padding:5px 6px 1px;cursor:pointer}.goal:hover,.goal.on{background:rgba(53,200,255,.07)}.goal .row{display:flex;justify-content:space-between;gap:10px}.goal .row b{font-weight:600}
 .goal .tk{display:inline-block;width:15px;height:15px;line-height:15px;text-align:center;border-radius:50%;border:1px solid var(--dim);color:var(--dim);font-size:10px;margin-right:7px}.goal.done .tk{background:var(--up);border-color:var(--up);color:#04060a}
-.goal .gs{color:var(--dim);font-size:11.5px;margin:-4px 0 5px 22px}.goal .bar{margin-left:22px}.goal .bar i{background:var(--cy)}.goal.done .bar i{background:var(--up)}.verd{font-size:14px;margin:0 0 8px}.verd b{color:var(--ink)}
+.goal .gs{color:var(--dim);font-size:11.5px;margin:-4px 0 5px 22px}.goal .bar{margin-left:22px}.goal .bar i{background:var(--cy)}.goal.done .bar i{background:var(--up)}.htab{width:100%;border-collapse:collapse;font:11.5px var(--mono);margin:6px 0 8px}.htab td,.htab th{padding:4px 6px;border-bottom:1px solid var(--line);text-align:right}.htab td:first-child,.htab th:first-child{text-align:left}.htab tr.sel td{background:rgba(53,200,255,.09);color:var(--ink)}.htab tr{cursor:pointer}
+.verd{font-size:14px;margin:0 0 8px}.verd b{color:var(--ink)}
 .ev{font:11.5px var(--mono);padding:3px 4px;border-bottom:1px solid var(--line);display:flex;gap:8px}
 .ev.new{animation:evin .7s var(--ease)}.ev.new .d{animation:typein .9s steps(48,end)}@keyframes typein{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}@keyframes evin{from{opacity:0;transform:translateX(-10px);background:rgba(53,200,255,.18)}}
 .ev time{color:var(--dim);flex:none}.ev .k{flex:none;width:80px;color:var(--cy)}.ev .d{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
@@ -198,6 +199,7 @@ const C={bg:"#04060a",panel:"#090d13",line:"#17212d",ink:"#e9eff6",dim:"#6f7f93"
 /* ================= widgets: move, resize, fold, full screen ================= */
 const R=36,G=8,DEF={},EL={},grid=$("grid"),ph=$("ph"),veil=$("veil");
 const WT={acct:"Your account value over time. Green area: above where it started. Red: below.",price:"Left of NOW: what the price really did, one bar per hour. Right of NOW: 48 possible next 24 hours imagined by the forecast model (shadow only); the bright ones still match the real price. Triangles: the bot's own trades. Bottom strip: every live price reading.",
+  hold:"The plain way to get what the market gives: keep a chosen share of the account in the coin and leave it alone. No prediction, almost no fees. It goes down when the market goes down.",
   prog:"The one place to see whether the strategy lab and the forecast model are getting anywhere, and exactly what getting somewhere would look like.",
   land:"Test only. A 3D map of everything the lab has tried. Floor: two settings. Height: the average result on history the lab never trained on. The blue sheet is breakeven. Drag to turn it.",
   lat:"Each ball is one of the model's 48 imagined outcomes for the next 24 hours, dropped into a bin by how much the price ends up or down.",ridge:"Where the model thinks the price may sit, hour by hour. The front row is the next hour, the back row is 24 hours out.",
@@ -209,28 +211,29 @@ const cwrap=id=>`<div class="cw"><canvas id="${id}"></canvas></div>`;
 [["acct","Account",0,0,5,9,3,4,`<div class="hero" data-x="k:acct" data-tip="Click to zoom into the full breakdown"><div><small>Account value</small><div class="big" id="kEq">–</div></div>
    <div class="stat" data-tip="Change in account value since midnight UTC. The daily-loss cap watches this number."><small>Today</small><b id="kDay">–</b></div><div class="stat" data-tip="Change since the account started, after all fees."><small>Since start</small><b id="kTot">–</b></div><div class="stat" data-tip="Total paid to the exchange in trading fees. Already taken out of every result shown."><small>Fees paid</small><b id="kFee">–</b></div><div class="stat" data-tip="Funding payments collected by the hedged strategy. Zero unless that strategy has a position."><small>Funding</small><b id="kFun">–</b></div></div><div id="heroX"></div>${cwrap("cCurve")}`],
  ["price","Price",5,0,7,9,4,4,cwrap("cPrice")],
- ["lat","Probability lattice",0,9,4,9,3,5,`<div class="side">${cwrap("cLat")}<div class="nums" id="latStats"></div></div>`],
- ["ridge","Forecast ridge",4,9,5,9,3,5,cwrap("cRidge")],
- ["matrix","Odds matrix",9,9,3,9,3,4,`<div class="fill"><div id="matrix"></div><p class="note" id="modelLine"></p></div>`],
- ["graph","Signal graph",0,18,8,10,4,6,cwrap("cGraph")],
- ["reg","Market state",8,18,4,10,3,5,`${cwrap("cReg")}<div class="mix" id="regMix"></div><div id="regime"></div>`],
- ["prog","Is it learning?",0,28,12,10,4,6,`<div class="prow">${cwrap("cProg")}<div class="goals" id="goals"></div></div>`],
- ["lab","Strategy lab",0,38,7,10,4,6,cwrap("cLab")],
- ["paths","Trade paths",7,38,5,10,4,6,cwrap("cPaths")],
- ["land","What the lab has learned",0,48,12,12,4,7,cwrap("cLand")],
- ["limits","Hard limits in use",0,60,4,7,3,4,`<div class="fill"><div id="limits"></div><div id="strats"></div></div>`],
- ["pos","Positions and orders",4,60,4,7,3,3,`<div class="fill" id="pos"></div>`],
- ["fills","Trades",8,60,4,7,3,3,`<div class="fill" id="fills"></div>`],
- ["events","What the bot is doing",0,67,12,6,4,3,`<div class="fill" id="events"></div>`],
- ["score","Forecaster scoreboard",0,73,6,8,3,3,`<div class="fill" id="score"></div>`],
- ["calls","Open calls being tracked",6,73,6,8,3,3,`<div class="fill" id="calls"></div>`],
- ["setup","Setup",0,81,12,11,4,4,`<div class="fill" id="setup"></div>`]
+ ["hold","Hold the market",0,9,12,9,4,6,`<div class="prow">${cwrap("cHold")}<div class="goals" id="holdUI"></div></div>`],
+ ["lat","Probability lattice",0,18,4,9,3,5,`<div class="side">${cwrap("cLat")}<div class="nums" id="latStats"></div></div>`],
+ ["ridge","Forecast ridge",4,18,5,9,3,5,cwrap("cRidge")],
+ ["matrix","Odds matrix",9,18,3,9,3,4,`<div class="fill"><div id="matrix"></div><p class="note" id="modelLine"></p></div>`],
+ ["graph","Signal graph",0,27,8,10,4,6,cwrap("cGraph")],
+ ["reg","Market state",8,27,4,10,3,5,`${cwrap("cReg")}<div class="mix" id="regMix"></div><div id="regime"></div>`],
+ ["prog","Is it learning?",0,37,12,10,4,6,`<div class="prow">${cwrap("cProg")}<div class="goals" id="goals"></div></div>`],
+ ["lab","Strategy lab",0,47,7,10,4,6,cwrap("cLab")],
+ ["paths","Trade paths",7,47,5,10,4,6,cwrap("cPaths")],
+ ["land","What the lab has learned",0,57,12,12,4,7,cwrap("cLand")],
+ ["limits","Hard limits in use",0,69,4,7,3,4,`<div class="fill"><div id="limits"></div><div id="strats"></div></div>`],
+ ["pos","Positions and orders",4,69,4,7,3,3,`<div class="fill" id="pos"></div>`],
+ ["fills","Trades",8,69,4,7,3,3,`<div class="fill" id="fills"></div>`],
+ ["events","What the bot is doing",0,76,12,6,4,3,`<div class="fill" id="events"></div>`],
+ ["score","Forecaster scoreboard",0,82,6,8,3,3,`<div class="fill" id="score"></div>`],
+ ["calls","Open calls being tracked",6,82,6,8,3,3,`<div class="fill" id="calls"></div>`],
+ ["setup","Setup",0,90,12,11,4,4,`<div class="fill" id="setup"></div>`]
 ].forEach(([id,t,x,y,w,h,mw,mh,body])=>{DEF[id]={id,x,y,w,h,mw,mh,t};
   const el=document.createElement("section");el.className="w";el.id="w-"+id;el.dataset.id=id;
   el.innerHTML=`<h2 class="wh"><span class="grip" aria-hidden="true">⠿</span><span class="wt" id="t-${id}">${t}</span><span class="wn" id="n-${id}"></span><span class="wb"><button data-a="min" title="Fold or unfold" aria-label="Fold or unfold ${t}">–</button><button data-a="max" title="Full screen (or double-click the title)" aria-label="Full screen ${t}">⤢</button></span></h2><div class="wbody">${body}</div><i class="rs" title="Drag to resize"></i>`;
   el.style.animationDelay=(Object.keys(EL).length*45)+"ms";grid.appendChild(el);EL[id]=el;
   if(WT[id])el.querySelector(".wt").dataset.tip=WT[id];
-  if(["acct","price","lat","ridge","matrix","graph","reg","lab","paths","land","prog"].includes(id)){const c=document.createElement("div");c.className="cap";c.id="cap-"+id;el.querySelector(".wbody").appendChild(c)}});
+  if(["acct","price","lat","ridge","matrix","graph","reg","lab","paths","land","prog","hold"].includes(id)){const c=document.createElement("div");c.className="cap";c.id="cap-"+id;el.querySelector(".wbody").appendChild(c)}});
 let OPT=Object.assign({lock:false,auto:true,bg:true,hint:true},LS.get("opt",{})),L=LS.get("layout",null),MAXED=null,narrow=false,BUSY=false,FLOADED=false;
 function freshLayout(){const o={};for(const id in DEF){const d=DEF[id];o[id]={id,x:d.x,y:d.y,w:d.w,h:d.h,H:d.h,mode:"auto",min:false}}return o}
 
@@ -365,7 +368,7 @@ const KIND={start:"The bot started, or restarted, with these settings.",regime:"
   forecast:"The Kronos model published a forecast or had one graded against the real price. Shadow mode: it never trades.",scorekeeper:"A tracked analyst call was graded against the real price, which shifts that source's weight.",
   reaction:"An automatic safety reaction fired: stale prices, a wide spread, a flash drop or the daily-loss cap.",blocked:"The risk engine refused an order because it would have broken a hard limit.",warning:"Something needs attention; the bot kept running.",
   fill:"An order traded.",funding:"A funding payment on the hedge leg.",control:"A manual control from this dashboard."};
-const STRAT={deep_bids:"Rests buy orders well below the market to catch sudden drops, sells a little above the fill, and exits on a stop or a time limit.",
+const STRAT={hold:"Holds a chosen share of the account in the coin and otherwise leaves it alone. No prediction: it earns whatever the market does, up or down, minus one small fee to get in. Off until you choose a share.",deep_bids:"Rests buy orders well below the market to catch sudden drops, sells a little above the fill, and exits on a stop or a time limit.",
   funding_carry:"Buys the coin and shorts the matching future to collect funding payments when they are rich. Switched off with real money for now."};
 const LIMX={day:"If today's loss reaches this cap the bot sells everything and halts until you press Resume.",gross:"The total value the bot may have working at once. This is its whole budget.",lev:"Exposure divided by account value. 1.00x means it never borrows."};
 let SEEN=null,lastFill=null,lastBad=null;
@@ -389,7 +392,7 @@ function render(){
   else if(r.paused)b+=`<div class="banner warn"><b>New entries paused (${esc(r.pause_reason)}). It restarts on its own in ${Math.ceil(r.pause_left/60)} min.</b></div>`;
   if(live&&!s.blocked&&!r.halted&&!(s.gate&&s.gate.why)&&s.free_cash<s.limits.max_order_usd)b+=`<div class="banner warn"><b>Waiting for funds: ${usd(s.free_cash)} of US dollars available on ${esc(s.venue)}. Deposit your starting balance there and the bot begins on its own within seconds of it arriving.</b></div>`;
   const gt=s.gate||{};
-  if(live&&gt.why)b+=`<div class="banner warn"><b>Standing aside with real money: ${esc(gt.why)}. No new buys are being placed; anything already held is still looked after. See "Is it learning?" for the full test.</b><button onclick="post({cmd:'trade_unproven',on:true})">Trade these settings anyway</button></div>`;
+  if(live&&gt.why&&!(s.hold&&s.hold.pct>0))b+=`<div class="banner warn"><b>Standing aside with real money: ${esc(gt.why)}. No new buys are being placed; anything already held is still looked after. See "Is it learning?" for the full test, and "Hold the market" for the plain alternative.</b><button onclick="post({cmd:'trade_unproven',on:true})">Trade these settings anyway</button></div>`;
   else if(live&&gt.overruled&&gt.reason)b+=`<div class="banner warn"><b>You chose to trade settings that lost in testing: ${esc(gt.reason)}.</b><button class="go" onclick="post({cmd:'trade_unproven',on:false})">Stand aside again</button></div>`;
   if(s.health.feed_last_error&&s.health.stale)b+=`<div class="banner warn"><b>Price feed trouble: ${esc(s.health.feed_last_error)}. Retrying automatically.</b></div>`;
   const u=s.update||{};
@@ -476,7 +479,7 @@ function render(){
       <button class="stop" onclick="goLive()">Go live with real money</button>
       ${s.mode==="paper"?`<button onclick="if(confirm('Wipe the practice account and start over?'))post({cmd:'reset_paper'})">Reset practice account</button>`:""}
     </div>`}
-  renderModelText();track();syncGraph();labNote();renderGoals();captions();autoGrow();autoFold();zoomRefresh();
+  renderModelText();track();syncGraph();labNote();renderGoals();renderHold();captions();autoGrow();autoFold();zoomRefresh();
 }
 function kronosRow(){const f=S.fc||{};if(!f.enabled)return"";const miss=(f.graded||0)-(f.hits||0);
   return xr("s:kronos",`<td class="cy">Kronos model (shadow)</td><td class="up">${f.hits||0}</td><td class="down">${miss}</td><td>–</td><td>${f.hit_rate==null?"new":f.hit_rate.toFixed(2)}</td>`,5,
@@ -504,6 +507,9 @@ function captions(){const s=S;if(!s.ready)return;const c=s.curve||[],live=s.mode
       setH("cap-paths",`<b>${tot.filter(v=>v>0).length} of ${tot.length} variants are ahead</b> over all ${R.t0.length} slices; ${un.filter(v=>v>0).length} are ahead on the shaded part they never trained on. Best total ${sp(ud(Math.max(...tot)),1)}, worst ${sp(ud(Math.min(...tot)),-1)}. Your live settings (amber): ${sp(ud(lt),lt)}.`)}
     else if(DETAIL){const ps=curPaths();if(ps.length){const w=ps.filter(x=>x.pnl>0).length,l=ps.filter(x=>x.pnl<0).length,tt=ps.reduce((a,x)=>a+x.pnl,0);setH("cap-paths",PSEL!=null&&ps[PSEL]?`<b>One path</b>, starting ${clock(ps[PSEL].t0)}: ${sp(ud(ps[PSEL].pnl),ps[PSEL].pnl)}. Top: the price, with each buy and exit marked. Bottom: this path's running result.`:`<b>${w} paths made money, ${l} lost, ${ps.length-w-l} never traded.</b> Total ${sp(ud(tt),tt)}. Each line is one ${PMODE==="model"?"imagined future":"slice of real history"}; above the dashed line is profit.`)}}}
   else{setH("cap-lab",esc((LAB&&LAB.detail)||"The lab starts once price history is in."));setH("cap-paths","")}
+  {const T=LAB&&LAB.holds,sel=HSEL?HSEL.pct:50;if(T){const R=T.rows.find(r=>r.pct===sel)||T.rows[1],P_=T.price,yrs=(T.weeks/52).toFixed(1);
+    setH("cap-hold",`<b>Over the last ${yrs} years, holding ${R.pct}% turned $100 into ${sp(usd(R.end),R.end-100)}</b> after ${usd(R.fees)} in fees, and at its worst sat ${Math.round(-R.drawdown*100)}% below its own high. The price went from ${usd0(P_.start)} to ${usd0(P_.end)}, by way of ${usd0(P_.high)}. That is the market's return, not skill: it is negative whenever the market falls, and this window happened to start near a low, which flatters it. For comparison, every version of the dip-buying strategy lost over the same years.`)}
+    else setH("cap-hold","The three-year record appears once the price history has downloaded.")}
   const pf=LAB&&LAB.proof&&LAB.proof.done?LAB.proof:null;
   if(pf&&PVIEW!=="rounds"){const e=pf.curve.picks[pf.curve.picks.length-1],el=pf.curve.live[pf.curve.live.length-1];setH("cap-prog",`<b>${pf.unseen_weeks} weeks it had never seen:</b> the lab's picks ended at ${sp(ud(e),e)}, your live settings at ${sp(ud(el),el)}, on $95 orders after fees. <b>What to hope for:</b> the white line finishing above the green $0 line. ${e>0?"It does.":"It does not, and no variant out of "+pf.pool+" managed it even with hindsight."} The picks losing less than the live settings is the learning; neither making money is the result. Test only: the lab never places or changes an order.`)}
   else{const q=progress();if(q){const L=q.last;setH("cap-prog",(q.p.pos>=q.need?"That is what progress looks like. It is evidence, not proof: past prices do not have to repeat.":`<b>What to hope for:</b> the white line climbing above the green dashed $0 line and staying there for ${q.need} rounds`+(L[4]!=null&&L[1]<=L[4]?", and above the amber line, which is the settings the bot runs today":"")+`. It is ${L[1]>0?"above it now":sp(ud(-L[1]).slice(1),-1)+" a slice short"}. Best it has ever been: ${sp(ud(q.best[1]),q.best[1])} in round ${q.best[0]}.`)+` The lab is test only and changes nothing live.`)}
@@ -994,6 +1000,11 @@ function inner(id){const s=S;if(!s.ready)return null;const I=s.inner||{},Lm=s.li
       {label:"stop",val:stop?usd0(stop):"–",st:"info",rule:"One stop for the whole ladder, "+pc(q.stop_loss)+" below the anchor, deeper than the last bid."},
       {label:"time limit",val:q.max_hold_hours+"h",st:"info",rule:"Anything still held after "+q.max_hold_hours+" hours is sold."},
       {label:"record",val:x.wins+" won, "+x.losses+" lost",st:"info",rule:"Closed trades so far."}]}}
+    if(x.name==="hold")return{title:"Strategy: hold the market",flow:"evals",note:STRAT.hold,end:()=>1,steps:[
+      {label:"your choice",val:q.pct?q.pct+"% in the coin":"off",st:q.pct?"ok":"idle",rule:"The share of the account you chose to keep in the coin. Nothing happens until you choose one."},
+      {label:"held now",val:usd(q.value||0),st:"info",rule:"What the coin held is worth right now, against a target of "+usd(q.target||0)+"."},
+      {label:"buy in",val:q.built?"done":q.pct?"part "+(x.parts||0)+" of "+q.weeks:"–",st:q.built?"ok":q.pct?"warn":"idle",rule:"Bought with resting orders, in one go or in equal weekly parts, each order inside the hard limits."},
+      {label:"leave alone",val:"unless "+Math.round((q.band||.1)*100)+" points off",st:"info",rule:"Once bought it only trades if the holding drifts more than "+Math.round((q.band||.1)*100)+" points of the account away from your share, and at most once a month."}]};
     return{title:"Strategy: "+x.name,flow:"evals",note:STRAT[x.name]||"",end:()=>1,steps:[
       {label:"funding rate",val:s.funding_rate==null?"–":(s.funding_rate*100).toFixed(4)+"%",st:"info",rule:"What holders of the future pay every 8 hours."},
       {label:"rich enough?",val:"needs "+((q.enter_rate||0)*100).toFixed(3)+"%",st:s.funding_rate>=q.enter_rate?"ok":"idle",rule:"Only worth opening when funding is at least this high."},
@@ -1088,6 +1099,38 @@ function drawInner(g,w,h,t,dt,a,hv,ck){const id=Gs.focus||Gs.last,d=inner(id);if
   if(ck&&!gSkip){if(hs>=0){const r=$("cGraph").getBoundingClientRect();openZoom("i:"+id+":"+hs,{left:r.left+P[hs][0]-14,top:r.top+P[hs][1]-14,width:28,height:28},ck.cx,ck.cy)}else Gs.focus=null}
   g.restore()}
 
+
+/* ================= hold the market =================
+   No prediction. You choose a share of the account; the bot buys it once and then leaves it alone. The chart is what that
+   would have done with $100 over the three years of real prices the bot keeps. */
+let HSEL=null,HCONF=0;
+function holdPick(pct,weeks){HSEL={pct:pct==null?HSEL.pct:pct,weeks:weeks==null?HSEL.weeks:weeks};HCONF=0;render()}
+function holdGo(pct){const live=S.mode==="live",h=S.hold||{};if(live&&pct>0&&pct>(h.pct||0)&&Date.now()-HCONF>8000){HCONF=Date.now();render();setTimeout(render,8100);return}HCONF=0;post({cmd:"hold",pct,weeks:pct>0?HSEL.weeks:1})}
+function renderHold(){const h=S.hold||{},T=LAB&&LAB.holds,live=S.mode==="live",eq=S.equity||0,coin=(S.spot||"BTC/USD").split("/")[0];if(!HSEL)HSEL={pct:h.pct>0?h.pct:50,weeks:h.pct>0?h.weeks||1:1};
+  const on=h.pct>0,chip=(t,js,sel)=>`<span class="chip${sel?" on":""}" style="margin:0 6px 4px 0" onclick="${js};event.stopPropagation()">${t}</span>`,share=eq>0?Math.round((h.value||0)/eq*100):0;
+  setT("n-hold",on?`holding ${usd(h.value||0)} · ${share}% of the account · target ${h.pct}%`:"off · nothing is bought until you choose");
+  let H=`<p class="verd"><b>${on?`Holding ${usd(h.value||0)} of ${coin}: ${share}% of the account, target ${h.pct}%.`:"Not holding anything."}</b> ${on?esc(h.note||""):"Choose a share and the bot buys it, then leaves it alone. It earns what the market does, up or down."}</p>`;
+  H+=`<p class="note" style="margin:0 0 4px">Share of the account kept in ${coin}</p><p style="margin:0 0 6px">`+[25,50,75,100].map(p=>chip(p+"%",`holdPick(${p})`,HSEL.pct===p)).join("")+`</p>`;
+  H+=`<p class="note" style="margin:0 0 4px">Buy it</p><p style="margin:0 0 6px">`+[[1,"all now"],[4,"in 4 weekly parts"],[8,"in 8 weekly parts"]].map(w=>chip(w[1],`holdPick(null,${w[0]})`,HSEL.weeks===w[0])).join("")+`</p>`;
+  if(T){H+=`<table class="htab"><tr><th>share held</th><th>$100 became</th><th>biggest fall on the way</th><th>worst week</th></tr>`+T.rows.map(r=>`<tr class="${r.pct===HSEL.pct?"sel":""}" onclick="holdPick(${r.pct})" data-tip="Holding ${r.pct}% for the last ${(T.weeks/52).toFixed(1)} years: $100 became ${usd(r.end)}. At its worst it was ${Math.round(-r.drawdown*100)}% below its own high. ${r.trades} trade${r.trades>1?"s":""}, ${usd(r.fees)} in fees."><td>${r.pct}%</td><td class="${sign(r.end-100)}">${usd(r.end)}</td><td class="down">-${Math.round(-r.drawdown*100)}%</td><td class="down">${(r.worst_week*100).toFixed(1)}%</td></tr>`).join("")+`</table>`}
+  else H+=`<p class="note">The 3-year record appears once the price history has downloaded.</p>`;
+  const amt=eq*HSEL.pct/100,first=amt/HSEL.weeks,conf=Date.now()-HCONF<8000,same=on&&h.pct===HSEL.pct&&(h.built||h.weeks===HSEL.weeks);
+  H+=`<div class="btns">`+(same?"":`<button class="${conf?"go":""}" onclick="holdGo(${HSEL.pct})">${conf?`Yes: buy with real money`:on?`Change to ${HSEL.pct}%`:`Start: hold ${HSEL.pct}% (${HSEL.weeks>1?usd0(first)+" now, the rest weekly":"about "+usd0(amt)})`}</button>`)+(on?`<button onclick="holdGo(0)">Sell it and stop holding</button>`:"")+`</div>`;
+  if(eq*HSEL.pct/100>S.limits.max_position_usd)H+=`<p class="note" style="margin-top:8px;color:var(--warn)">Your hard limit caps any one position at ${usd0(S.limits.max_position_usd)}, so it will hold ${usd0(S.limits.max_position_usd*.98)}, not ${usd0(eq*HSEL.pct/100)}.</p>`;
+  H+=`<p class="note" style="margin-top:8px">${live?"Real money.":"Practice money."} Each order stays inside your hard limits (${usd0(S.limits.max_order_usd)} an order, ${usd0(S.limits.max_position_usd)} in total), and your ${usd0(S.limits.max_daily_loss_usd)} daily-loss stop still sells everything if it is hit. While this is on, the dip-buying strategy places nothing new.</p>`;
+  setH("holdUI",H)}
+function drawHold(t){const c0=cv("cHold");if(!c0)return;const [g,w,h]=c0,T=LAB&&LAB.holds;if(!T||!T.rows.length)return emptyMsg(g,w,h,LAB&&LAB.state==="idle"?"needs real prices":"waiting for three years of price history");
+  const sel=HSEL?HSEL.pct:50,rows=T.rows,n=rows[0].curve.length,padL=48,padR=118,padT=14,padB=20,all=[100];rows.forEach(r=>all.push(...r.curve));const lo=Math.min(...all),hi=Math.max(...all),sp=hi-lo||1,hv=hov("cHold");
+  const X=i=>padL+i/(n-1)*(w-padL-padR),Y=v=>padT+(hi+sp*.04-v)/(sp*1.08)*(h-padT-padB),wk=k=>new Date((T.to-(n-1-k)*604800)*1000).toLocaleDateString(undefined,{month:"short",year:"2-digit"});
+  [100,150,200,250,300,400].filter(v=>v<=hi+5).forEach(v=>{const y=Math.round(Y(v))+.5;g.strokeStyle=v===100?"#3a4c61":C.line;g.setLineDash(v===100?[4,4]:[]);g.beginPath();g.moveTo(padL,y);g.lineTo(w-padR,y);g.stroke();label(g,"$"+v,padL-6,y+3,v===100?C.ink:C.dim,"right")});g.setLineDash([]);
+  label(g,"what $100 became, by share held · real prices, fees included",padL+4,padT+8,C.dim);
+  rows.forEach(r=>{if(r.pct===sel)return;g.beginPath();g.moveTo(X(0),Y(100));r.curve.forEach((v,i)=>g.lineTo(X(i),Y(v)));g.strokeStyle="rgba(159,176,195,.35)";g.lineWidth=1;g.stroke();label(g,r.pct+"%",X(n-1)+6,Y(r.curve[n-1])+3,C.dim)});
+  const R=rows.find(r=>r.pct===sel)||rows[1],cu=R.curve;let pk=0,pi=0,ti=0,dd=0;cu.forEach((v,i)=>{if(v>pk){pk=v;pi=i}});let mx=0,mi=0;cu.forEach((v,i)=>{if(v>mx){mx=v;mi=i}const d=v/mx-1;if(d<dd){dd=d;ti=i;pi=mi}});
+  g.beginPath();g.moveTo(X(0),Y(100));cu.forEach((v,i)=>g.lineTo(X(i),Y(v)));g.strokeStyle=cu[n-1]>=100?C.up:C.down;g.lineWidth=2.2;g.stroke();
+  if(dd<-.05){g.strokeStyle=C.down;g.lineWidth=1;g.setLineDash([3,3]);g.beginPath();g.moveTo(X(pi),Y(cu[pi]));g.lineTo(X(ti),Y(cu[pi]));g.lineTo(X(ti),Y(cu[ti]));g.stroke();g.setLineDash([]);tag(g,"fell "+Math.round(-dd*100)+"% from its high",clamp(X(ti),90,w-padR-4),Y(cu[ti])+16,C.down,X(ti)>w*.5?"right":"left")}
+  sphere(g,X(n-1),Y(cu[n-1]),4,cu[n-1]>=100?C.up:C.down);tag(g,sel+"% held: "+usd(cu[n-1]),X(n-1)+8,Y(cu[n-1])+4,C.ink);label(g,wk(0),X(0),h-5,C.dim);label(g,"now",X(n-1),h-5,C.ink,"right");
+  if(hv&&hv.x>=padL-4&&hv.x<=w-padR+4){const i=clamp(Math.round((hv.x-padL)/(w-padL-padR)*(n-1)),0,n-1);vline(g,X(i),padT,h-padB,"rgba(233,239,246,.35)",[2,3]);sphere(g,X(i),Y(cu[i]),3.5,"#e9eff6");
+    tipHTML=`<b>${wk(i)}</b>`+rows.map(r=>trow(r.pct+"% held"+(r.pct===sel?" (selected)":""),`<span class="${sign(r.curve[i]-100)}">${usd(r.curve[i])}</span>`)).join("")+trow("kept in cash the whole time","$100.00")+`<i>Each line is $100 with that share kept in the coin and the rest in cash. More held means more of the rises and more of the falls. This is a record of the past, not a forecast.</i>`}}
 
 /* ================= is it learning? =================
    "The lab's picks" are the 10 variants it would keep (chosen only on the history it trains on). The line is how those picks did on history
@@ -1249,7 +1292,7 @@ function drawLand(t,dt){const c0=cv("cLand");if(!c0)return;const [g,w,h]=c0,Ld=L
 /* ================= loop ================= */
 let lastT=0;
 function frame(ms){const t=ms/1000,dt=Math.min(.1,Math.max(0,t-lastT));lastT=t;RAFQ=false;CUR=NEXT;NEXT={sel:MH?MH.sel:null,hour:MH?MH.hour:null};tipHTML="";
-  if(S.ready&&!document.hidden){try{tweens(ms);drawBg(t,dt);LQ=quiet("acct");drawCurve(t);LQ=quiet("reg");drawReg(t);LQ=quiet("lat");drawLat(t);LQ=quiet("ridge");drawRidge(t);LQ=quiet("price");drawPrice(t);LQ=quiet("graph");drawGraph(t,dt);LQ=quiet("lab");drawLab(t,dt);LQ=quiet("paths");drawPaths(t);LQ=false;drawLand(t,dt);drawProg(t);markHour()}catch(e){console.error(e)}}
+  if(S.ready&&!document.hidden){try{tweens(ms);drawBg(t,dt);LQ=quiet("acct");drawCurve(t);LQ=quiet("reg");drawReg(t);LQ=quiet("lat");drawLat(t);LQ=quiet("ridge");drawRidge(t);LQ=quiet("price");drawPrice(t);LQ=quiet("graph");drawGraph(t,dt);LQ=quiet("lab");drawLab(t,dt);LQ=quiet("paths");drawPaths(t);LQ=false;drawLand(t,dt);drawProg(t);drawHold(t);markHour()}catch(e){console.error(e)}}
   CK=null;if(HV&&!BUSY)showTip(ZOOM?"":tipHTML);
   if(!RM)requestAnimationFrame(frame)}
 async function tick(){try{S=await (await fetch("/api/state")).json();
