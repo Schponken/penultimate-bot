@@ -102,6 +102,7 @@ def main() -> None:
             status("waiting", "waiting for price history from the bot")
         elif rows[-1][0] != last_base or time.time() - last_made >= args.every:
             t0 = time.time()
+            status("sampling", f"imagining {args.samples} futures from the last {len(rows)} hours of prices")
             try:
                 closes, highs, lows = sample_paths(predictor, rows, raw["timeframe_s"], args.horizon,
                                                    args.samples, 1.0, 0.9)

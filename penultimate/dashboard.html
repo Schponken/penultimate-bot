@@ -121,7 +121,7 @@ tr.xd td{white-space:normal;text-align:left;background:var(--panel2);padding:2px
 .goal .tk{display:inline-block;width:15px;height:15px;line-height:15px;text-align:center;border-radius:50%;border:1px solid var(--dim);color:var(--dim);font-size:10px;margin-right:7px}.goal.done .tk{background:var(--up);border-color:var(--up);color:#04060a}
 .goal .gs{color:var(--dim);font-size:11.5px;margin:-4px 0 5px 22px}.goal .bar{margin-left:22px}.goal .bar i{background:var(--cy)}.goal.done .bar i{background:var(--up)}.verd{font-size:14px;margin:0 0 8px}.verd b{color:var(--ink)}
 .ev{font:11.5px var(--mono);padding:3px 4px;border-bottom:1px solid var(--line);display:flex;gap:8px}
-.ev.new{animation:evin .7s var(--ease)}@keyframes evin{from{opacity:0;transform:translateX(-10px);background:rgba(53,200,255,.18)}}
+.ev.new{animation:evin .7s var(--ease)}.ev.new .d{animation:typein .9s steps(48,end)}@keyframes typein{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}@keyframes evin{from{opacity:0;transform:translateX(-10px);background:rgba(53,200,255,.18)}}
 .ev time{color:var(--dim);flex:none}.ev .k{flex:none;width:80px;color:var(--cy)}.ev .d{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .ev.on .d{white-space:normal}.evx{font-size:12px;color:var(--dim);padding:2px 4px 6px 12px;border-bottom:1px solid var(--line);background:var(--panel2);animation:open .22s var(--ease)}
 .ev .k.reaction{color:var(--warn)}.ev .k.blocked,.ev .k.warning{color:var(--down)}.ev .k.funding,.ev .k.scorekeeper,.ev .k.forecast{color:var(--up)}
@@ -511,7 +511,8 @@ function captions(){const s=S;if(!s.ready)return;const c=s.curve||[],live=s.mode
 /* ================= forecast data ================= */
 let F={forecast:null,observed:[],candles:[],state:"",detail:""},D=null,LAT=null,RID=null,fcKey=null,lastFetch=0;
 const quant=(arr,p)=>{const a=[...arr].sort((x,y)=>x-y);const i=(a.length-1)*p,lo=Math.floor(i),hi=Math.ceil(i);return a[lo]+(a[hi]-a[lo])*(i-lo)};
-async function loadForecast(){lastFetch=Date.now();try{F=await (await fetch("/api/forecast")).json();derive()}catch(e){}FLOADED=true}
+let LASTC=0;
+async function loadForecast(){lastFetch=Date.now();try{F=await (await fetch("/api/forecast")).json();const cs=F.candles||[],lc=cs.length?cs[cs.length-1][0]:0;if(LASTC&&lc>LASTC)mark("candle");LASTC=lc;derive()}catch(e){}FLOADED=true}
 let DKEY="";
 function derive(){
   const f=F.forecast,ob=F.observed||[],dk=f&&f.closes&&f.closes.length?"m"+f.made+"|"+f.base_ts:"o"+ob.length+"|"+ob[ob.length-1];if(dk===DKEY)return;DKEY=dk;mark("fc");   // nothing new: leave every chart as it is
@@ -536,9 +537,9 @@ function beyond(h,l){const s=new Set();D.f.closes.forEach((c,i)=>{if(l<0?c[h-1]<
   return {set:s,key:"m"+h+"|"+l,label:`${s.size} of ${D.n} paths ${l<0?"at or below":"at or above"} ${l>0?"+":""}${l}% after ${h}h`}}
 function renderModelText(){
   if(!S.ready)return;const fc=S.fc||{},model=(fc.model||"").split("/").pop();
-  const st={ready:"running",loading:"loading",installing:"installing",waiting:"waiting for price history",idle:"needs real prices",unavailable:"could not install",error:"error",off:"off",starting:"starting"}[fc.state]||fc.state||"";
+  const st={ready:"running",sampling:"imagining futures right now",loading:"loading",installing:"installing",waiting:"waiting for price history",idle:"needs real prices",unavailable:"could not install",error:"error",off:"off",starting:"starting"}[fc.state]||fc.state||"";
   const age=fc.made?Math.max(0,Math.round((Date.now()/1000-fc.made)/60)):null;
-  setH("modelLine",`${esc(model)}: <b class="${fc.state==="ready"?"up":fc.state==="error"||fc.state==="unavailable"?"down":"warnc"}">${esc(st)}</b>${fc.state!=="ready"&&fc.detail?". "+esc(fc.detail):""}.${age!=null&&fc.fresh?` Updated ${age} min ago.`:""} Shadow mode: scored against real prices, never trades. Graded so far: ${fc.graded||0}${fc.graded?`, ${Math.round(fc.hit_rate*100)}% right`:""}.`);
+  setH("modelLine",`${esc(model)}: <b class="${fc.state==="ready"||fc.state==="sampling"?"up":fc.state==="error"||fc.state==="unavailable"?"down":"warnc"}">${esc(st)}</b>${fc.state!=="ready"&&fc.detail?". "+esc(fc.detail):""}.${age!=null&&fc.fresh?` Updated ${age} min ago.`:""} Shadow mode: scored against real prices, never trades. Graded so far: ${fc.graded||0}${fc.graded?`, ${Math.round(fc.hit_rate*100)}% right`:""}.`);
   if(D&&D.source==="model"){
     setT("n-lat",`${D.n} sampled 24h outcomes`);setT("n-ridge","where price may sit, hour by hour");setT("n-matrix","share of sampled paths, %");
     setH("latStats",`<div data-tip="Share of the sampled futures that finish above the last hourly close"><span>ends up</span><span class="${D.pUp>=.5?"up":"down"}">${Math.round(D.pUp*100)}%</span></div><div><span>median</span><span class="${sign(D.med)}">${pct(D.med,2)}</span></div><div><span>5% worst</span><span class="${sign(D.lo)}">${pct(D.lo,2)}</span></div><div><span>5% best</span><span class="${sign(D.hi)}">${pct(D.hi,2)}</span></div>`+
@@ -596,7 +597,7 @@ function setFocusV(v,keep){FOCUSV=v;detKey="";PSEL=null;if(!keep&&PMODE==="race"
 function setPMode(m){PMODE=m;PSEL=null;labNote()}
 function focusPath(k){if(PMODE==="race")PMODE="past";const ps=curPaths();if(!ps.length)return;const order=ps.map((p,i)=>i).sort((a,b)=>ps[a].pnl-ps[b].pnl);
   if(k==="all")PSEL=null;else if(k==="best")PSEL=order[order.length-1];else if(k==="worst")PSEL=order[0];else{const at=order.indexOf(PSEL==null?order[0]:PSEL);PSEL=order[(at+k+order.length)%order.length]}labNote()}
-function labNote(){if(!LAB)return;setT("n-land",LAB.land&&LAB.land.tested?LAB.land.tested.toLocaleString()+" settings tried so far · drag to turn":"");const lv=LAB.live,last=LAB.gens&&LAB.gens.length?LAB.gens[LAB.gens.length-1].v:[],b=last.find(r=>r[0]===LAB.best);
+function labNote(){if(!LAB)return;setT("n-land",LAB.land&&LAB.land.tested?LAB.land.tested.toLocaleString()+" settings tried so far · drag to turn"+(OPT.bg&&!RM?" · turns a step with each live price reading":""):"");const lv=LAB.live,last=LAB.gens&&LAB.gens.length?LAB.gens[LAB.gens.length-1].v:[],b=last.find(r=>r[0]===LAB.best);
   setT("n-lab",LAB.state==="running"&&b?`round ${LAB.gen} · ${LAB.pop} variants on ${LAB.episodes} slices of real history · best ${ud(b[3])} trained, ${ud(b[4])} on unseen · test only, never trades`:(LAB.detail||LAB.state||""));
   const d=DETAIL;if(!d){setH("n-paths",esc(LAB.detail||""));return}
   const who=d.id==="live"?"live settings":(d.id===LAB.best?"champion":"variant")+" #"+d.id,chip=(t,js,on)=>`<span class="chip${on?" on":""}" onclick="${js};event.stopPropagation()">${t}</span>`;
@@ -769,7 +770,8 @@ function drawPrice(t){const c0=cv("cPrice");if(!c0)return;const [g,w,h]=c0,cs=F.
   g.strokeStyle=C.line;g.lineWidth=1;for(let i=0;i<=4;i++){const p=lo+(hi-lo)*i/4,y=Math.round(Y(p))+.5;g.beginPath();g.moveTo(0,y);g.lineTo(w-padR,y);g.stroke();label(g,Math.round(p).toLocaleString(),w-padR+6,y+3,C.dim)}
   if(big)for(let ts=Math.ceil(t0/21600)*21600;ts<t1;ts+=21600){const d=new Date(ts*1000);if(Math.abs(X(ts)-X(nowTs))>34)label(g,p2(d.getHours())+":00",X(ts),h-tape-3,C.dim,"center")}
   const cw=Math.max(1.5,(X(t0+tf)-X(t0))*.62),hc=hv&&hv.x<w-padR?show.find(c=>iX(hv.x)>=c[0]&&iX(hv.x)<c[0]+tf):null;
-  show.forEach((c,i)=>{const x=X(c[0]+tf/2),upc=c[4]>=c[1],col=upc?C.up:C.down,last=forming&&i===show.length-1;g.strokeStyle=col;g.fillStyle=col;
+  const newI=show.length-(forming?2:1),kc=RM?1:Math.min(1,since("candle")/.9),kce=1-Math.pow(1-kc,3);
+  show.forEach((c0_,i)=>{const c=i===newI&&kc<1?[c0_[0],c0_[1],c0_[1]+(c0_[2]-c0_[1])*kce,c0_[1]+(c0_[3]-c0_[1])*kce,c0_[1]+(c0_[4]-c0_[1])*kce]:c0_,x=X(c[0]+tf/2),upc=c[4]>=c[1],col=upc?C.up:C.down,last=forming&&i===show.length-1;g.strokeStyle=col;g.fillStyle=col;if(i===newI)ringEv(g,x,Y(c0_[4]),"candle",1.6,4,22,col);
     g.beginPath();g.moveTo(x,Y(c[2]));g.lineTo(x,Y(c[3]));g.stroke();
     const y1=Y(Math.max(c[1],c[4])),y2=Y(Math.min(c[1],c[4]));block(g,x-cw/2,y1,cw,Math.max(1,y2-y1),Math.min(3,cw*.34),col);g.shadowBlur=0;
     if(last){const fl=1-since("px")/.7;if(fl>0){g.fillStyle=`rgba(255,255,255,${(fl*.55).toFixed(2)})`;g.fillRect(x-cw/2,y1,cw,Math.max(1,y2-y1))}}});
@@ -782,13 +784,18 @@ function drawPrice(t){const c0=cv("cPrice");if(!c0)return;const [g,w,h]=c0,cs=F.
     g.beginPath();g.moveTo(xs(0),Y(D.base));D.bands.forEach((b,i)=>g.lineTo(xs(i+1),Y(b[4])));for(let i=D.H-1;i>=0;i--)g.lineTo(xs(i+1),Y(D.bands[i][0]));g.closePath();g.fillStyle="rgba(233,239,246,.05)";g.fill();
     g.beginPath();g.moveTo(xs(0),Y(D.base));D.bands.forEach((b,i)=>g.lineTo(xs(i+1),Y(b[3])));for(let i=D.H-1;i>=0;i--)g.lineTo(xs(i+1),Y(D.bands[i][1]));g.closePath();g.fillStyle="rgba(233,239,246,.07)";g.fill();   // the middle half, a layer in front
     g.fillStyle="rgba(53,200,255,.035)";g.fillRect(xs(0),padT,w-padR-xs(0),h-padB-padT);label(g,"PROJECTED · the model's 48 futures (shadow)",Math.max(240,Math.min(xs(0)+6,w-padR-250)),12,C.cy);
-    const still=RM||se||hr!=null||hk!=null,prog=still?1:Math.min(1,since("fc")/2.6),upto=prog*D.H,tk=TRK&&TRK.e>.02?TRK:null;     // drawn in once, when a new forecast arrives
+    const still=RM||se||hr!=null||hk!=null,tf_=still?99:since("fc"),tk=TRK&&TRK.e>.02?TRK:null,ease=v=>1-Math.pow(1-clamp(v,0,1),3),MED="#ffd34d";
     if(tk)label(g,tk.n+" of "+D.n+" still match the real price",Math.max(240,Math.min(xs(0)+6,w-padR-250)),24,tk.n?C.ink:C.warn);
-    D.order.forEach(i=>{const p=f.closes[i],on=!se||se.set.has(i),dep=D.rank[i]/D.n;g.beginPath();g.moveTo(xs(0),Y(D.base));const full=Math.floor(upto);for(let k=0;k<full;k++)g.lineTo(xs(k+1),Y(p[k]));
-      if(full<D.H){const a=full?p[full-1]:D.base,b=p[full],fr=upto-full;g.lineTo(xs(full)+(xs(full+1)-xs(full))*fr,Y(a+(b-a)*fr))}
-      const liv=tk&&tk.on[i];g.lineWidth=se&&on?1.5:tk?(liv?1.1:.5):.6+dep*.9;g.strokeStyle=(D.finals[i]>0?"rgba(0,230,118,":"rgba(255,46,76,")+(se?(on?".95)":".06)"):(tk?(liv?.6:.1):.1+.42*dep*dep).toFixed(2)+")");g.stroke()});   // futures the real price has already left behind fade
-    g.beginPath();g.moveTo(xs(0),Y(D.base));D.bands.forEach((b,i)=>g.lineTo(xs(i+1),Y(b[2])));g.strokeStyle=C.ink;g.lineWidth=1.3;g.setLineDash([4,3]);g.stroke();g.setLineDash([]);
-    if(hk==null&&hr==null&&!se){const e=D.bands[D.H-1],xe=xs(D.H)-3;tag(g,"best 1 in 20: "+pct(e[4]/D.base-1,1),xe,Y(e[4])-4,C.up,"right");tag(g,"middle: "+pct(e[2]/D.base-1,1),xe,Y(e[2])+4,C.ink,"right");tag(g,"worst 1 in 20: "+pct(e[0]/D.base-1,1),xe,Y(e[0])+18,C.down,"right")}
+    /* a new forecast bursts out of the last close: each future grows in turn with a bright head, then the middle path is drawn over them */
+    D.order.forEach((i,j)=>{const p=f.closes[i],on=!se||se.set.has(i),dep=D.rank[i]/D.n,upto=ease((tf_-.45-j/D.n*.9)/1.7)*D.H;if(upto<=0)return;g.beginPath();g.moveTo(xs(0),Y(D.base));const full=Math.floor(upto);for(let k=0;k<full;k++)g.lineTo(xs(k+1),Y(p[k]));
+      let hx=xs(full),hy=Y(full?p[full-1]:D.base);if(full<D.H){const a=full?p[full-1]:D.base,b=p[full],fr=upto-full;hx=xs(full)+(xs(full+1)-xs(full))*fr;hy=Y(a+(b-a)*fr);g.lineTo(hx,hy)}
+      const liv=tk&&tk.on[i],rgb=D.finals[i]>0?"0,230,118":"255,46,76",a0=.14+.42*dep*dep,km=tk?clamp((tf_-4.2)/1.2,0,1):0;g.lineWidth=se&&on?1.5:km>.5?(liv?1.1:.5):.6+dep*.9;g.strokeStyle=`rgba(${rgb},`+(se?(on?".95)":".06)"):(a0+((liv?.6:.1)-a0)*km).toFixed(2)+")");g.stroke();   // futures the real price has already left behind fade
+      if(full<D.H){g.beginPath();g.arc(hx,hy,1.8,0,7);g.fillStyle=`rgb(${rgb})`;g.fill()}});
+    {const upto=ease((tf_-2.3)/1.2)*D.H,full=Math.floor(upto);if(upto>0){g.beginPath();g.moveTo(xs(0),Y(D.base));for(let k=0;k<full;k++)g.lineTo(xs(k+1),Y(D.bands[k][2]));let hx=xs(full),hy=Y(full?D.bands[full-1][2]:D.base);
+        if(full<D.H){const a=full?D.bands[full-1][2]:D.base,b=D.bands[full][2],fr=upto-full;hx=xs(full)+(xs(full+1)-xs(full))*fr;hy=Y(a+(b-a)*fr);g.lineTo(hx,hy)}
+        g.strokeStyle="rgba(4,6,10,.85)";g.lineWidth=4.5;g.stroke();g.strokeStyle=MED;g.lineWidth=2;g.stroke();if(full<D.H)sphere(g,hx,hy,3.5,MED)}}
+    if(tf_<1.1){const k=tf_/1.1,x=xs(0),y=Y(D.base);g.beginPath();g.arc(x,y,6+30*(1-k)*(1-k),0,7);g.strokeStyle=C.cy;g.globalAlpha=.25+.7*k;g.lineWidth=1.6;g.stroke();g.globalAlpha=1;g.lineWidth=1}       // the ring closes in on the last close just before the futures leave it
+    if(hk==null&&hr==null&&!se&&tf_>3.5){const e=D.bands[D.H-1],xe=xs(D.H)-3;g.globalAlpha=clamp((tf_-3.5)/.5,0,1);tag(g,"best 1 in 20: "+pct(e[4]/D.base-1,1),xe,Y(e[4])-4,C.up,"right");tag(g,"middle: "+pct(e[2]/D.base-1,1),xe,Y(e[2])+4,MED,"right");tag(g,"worst 1 in 20: "+pct(e[0]/D.base-1,1),xe,Y(e[0])+18,C.down,"right");g.globalAlpha=1}
     const mk=hk!=null?hk:hr;if(mk!=null&&mk>=1&&mk<=D.H){const x=xs(mk),b=D.bands[mk-1];vline(g,x,padT,h-padB,C.cy,[3,3]);label(g,"+"+mk+"h",x,padT+9,C.cy,x>w-padR-30?"right":"center");
       [b[0],b[2],b[4]].forEach((v,i)=>{g.beginPath();g.arc(x,Y(v),i===1?3.5:2.5,0,7);g.fillStyle=i===1?C.ink:C.cy;g.fill()})}
     if(hk!=null){const b=D.bands[hk-1],col=f.closes.map(p=>p[hk-1]),pr=iY(hv.y);
@@ -803,9 +810,15 @@ function drawPrice(t){const c0=cv("cPrice");if(!c0)return;const [g,w,h]=c0,cs=F.
     g.beginPath();g.moveTo(x,y);g.lineTo(x-5,y+9*o);g.lineTo(x+5,y+9*o);g.closePath();g.fillStyle=cc;g.fill();g.strokeStyle=C.bg;g.lineWidth=1;g.stroke();if(hv&&Math.hypot(hv.x-x,hv.y-(y+5*o))<9)hf=f});       // the bot's own trades
   if(hf)tipHTML=`<b>The bot ${hf.side==="buy"?"bought":"sold"} here</b>`+trow("when",clock(hf.ts))+trow("price",usd(hf.price))+trow("value",usd(hf.qty*hf.price))+trow("fee",usd(hf.fee||0))+trow("placed by",esc(hf.strategy||""))+trow("price now versus this trade",pct(price/hf.price-1,2));
   const yp=Y(price);g.strokeStyle="rgba(233,239,246,.35)";g.setLineDash([1,3]);g.beginPath();g.moveTo(0,yp);g.lineTo(w-padR,yp);g.stroke();g.setLineDash([]);
-  ringEv(g,xn,yp,"tick",.9,3,14,DIRC(evd("tick")));g.beginPath();g.arc(xn,yp,3,0,7);g.fillStyle=C.ink;g.fill();
+  {const fl=Math.max(0,1-since("tick")/.9),bw=11,gr=g.createLinearGradient(xn-bw,0,xn+bw,0),a=(.07+.13*fl).toFixed(3),fc=S.fc||{};gr.addColorStop(0,"rgba(53,200,255,0)");gr.addColorStop(.5,`rgba(53,200,255,${a})`);gr.addColorStop(1,"rgba(53,200,255,0)");g.fillStyle=gr;g.fillRect(xn-bw,padT,bw*2,h-padB-padT);      // the NOW beam brightens with every real price reading
+    ringEv(g,xn,yp,"tick",.9,5,17,DIRC(evd("tick")));sphere(g,xn,yp,4.5,"#cfefff");
+    if(fc.state==="sampling"&&!RM){const a0=t*4;g.beginPath();g.arc(xn,yp,10,a0,a0+2.2);g.strokeStyle=C.cy;g.lineWidth=2;g.stroke();g.lineWidth=1}       // spins only while the model is really computing
+    else if(fc.made&&model){const left=clamp((fc.made+3600-nowTs)/3600,0,1);g.beginPath();g.arc(xn,yp,10,-1.5708,-1.5708+6.2832*left);g.strokeStyle="rgba(53,200,255,.75)";g.lineWidth=1.6;g.stroke();g.lineWidth=1}     // the arc is the time left until the next forecast
+    const gq=since("grade");if(gq<5){const hit=evd("grade")>0,col=hit?C.up:C.warn,k=Math.min(1,gq/.8);g.beginPath();g.arc(xn,yp,12+26*(1-(1-k)*(1-k)),0,7);g.strokeStyle=col;g.lineWidth=2.5;g.globalAlpha=gq<3.8?1:(5-gq)/1.2;g.stroke();g.font="700 15px "+MONO;const tx=hit?"HIT":"MISS",tw=g.measureText(tx).width;g.fillStyle="rgba(6,9,14,.88)";g.fillRect(xn+41,yp-11,tw+10,22);g.fillStyle=col;g.textAlign="left";g.fillText(tx,xn+46,yp+5);g.globalAlpha=1;g.lineWidth=1}}
   const fl=Math.max(0,1-(performance.now()-pxFlash)/700);g.fillStyle=fl>0&&!RM?(pxDir>0?C.up:C.down):C.ink;g.fillRect(w-padR+2,yp-8,padR-2,16);label(g,Math.round(price).toLocaleString(),w-padR+6,yp+3.5,C.bg,"left",10,1);
-  vline(g,xn,padT,h-padB,"rgba(233,239,246,.3)");tag(g,"NOW",xn,h-tape-1,C.ink,"center");
+  vline(g,xn,padT,h-padB,"rgba(233,239,246,.3)");
+  {const fc=S.fc||{},due=fc.made?Math.round((fc.made+3600-nowTs)/60):null,gq=since("grade"),ph=gq<6?["forecast graded: "+(evd("grade")>0?"HIT":"MISS"),evd("grade")>0?C.up:C.warn]:fc.state==="sampling"?["model is imagining "+(fc.samples||48)+" futures",C.cy]:model&&since("fc")<6?["new forecast: "+D.n+" futures",C.cy]:since("candle")<6?["a real hour just closed",C.ink]:model&&due!=null?[due>0?"next forecast in "+due+" min":"next forecast due",C.ink]:null;
+    const tx="NOW"+(ph&&w>520?" · "+ph[0]:"");g.font="10px "+MONO;const tw=g.measureText(tx).width+8;tag(g,tx,clamp(xn-tw/2,2,w-padR-tw),h-tape-1,ph?ph[1]:C.ink,"left")}       // what is really happening at this moment
   if(tape){const n=Math.min(PX.length,120),a=PX.slice(-n),y0=h-tape+8,y1=h-4,tl=Math.min(...a),th=Math.max(...a),tsp=(th-tl)||1,st=(w-padR-4)/119,sl=(1-Math.min(1,since("tick")/.35))*st,TX=i=>w-padR-(n-1-i)*st+sl,TY=v=>y1-(v-tl)/tsp*(y1-y0);
     g.fillStyle="rgba(6,9,14,.9)";g.fillRect(0,h-tape,w,tape);g.strokeStyle=C.line;g.beginPath();g.moveTo(0,h-tape+.5);g.lineTo(w,h-tape+.5);g.stroke();      // live strip: one point per real price reading; it steps left when a new one arrives
     g.save();g.beginPath();g.rect(0,h-tape,w-padR+3,tape);g.clip();g.lineWidth=1.3;
@@ -835,6 +848,10 @@ function drawLat(t){const c0=cv("cLat");if(!c0)return;const [g,w,h]=c0;if(!LAT)r
   Lt.balls.forEach((b,i)=>{const el=e-b.t0;if(el<0)return;const s=el/rowT,col=b.v>0?C.up:b.v<0?C.down:"#9fb0c3";if(s>=Lt.R){counts[b.b]++;if(!tk||tk.on[i])con[b.b]++;return}
     const P=q=>{q=Math.max(0,q);const k=Math.floor(q),fr=q-k;let c=0;for(let j=0;j<k;j++)c+=b.steps[j];const c2=c+b.steps[k];return [X(c,k)+(X(c2,k+1)-X(c,k))*fr,Yr(k)+dy*fr-Math.sin(Math.PI*fr)*dy*.28]};
     const dim=se&&model&&!se.set.has(i);[[.7,.16],[.35,.36]].forEach(([lag,a])=>{const [x,y]=P(s-lag);g.beginPath();g.arc(x,y,2,0,7);g.fillStyle=col;g.globalAlpha=dim?a*.2:a;g.fill()});g.globalAlpha=dim?.2:1;const [x,y]=P(s);sphere(g,x,y,3.2,col,8);g.globalAlpha=1});
+  if(model&&w>250&&pegH>90){const N=Lt.balls.length,cs_=6,ord=Lt.ord||(Lt.ord=Lt.balls.map((b,i)=>i).sort((a,b)=>Lt.balls[a].v-Lt.balls[b].v)),up=Lt.balls.filter(b=>b.v>0).length;let landed=0;
+    ord.forEach((i,k)=>{const b=Lt.balls[i],on=e-b.t0>=Lt.R*rowT,x=4+(k%8)*(cs_+2),y=18+Math.floor(k/8)*(cs_+2);if(on)landed++;g.fillStyle=!on?"#141d28":b.v>0?C.up:C.down;g.globalAlpha=on&&tk&&!tk.on[i]?.25:1;g.fillRect(x,y,cs_,cs_);g.globalAlpha=1;
+      if(hv&&hv.x>=x-1&&hv.x<x+cs_+1&&hv.y>=y-1&&hv.y<y+cs_+1){g.strokeStyle=C.ink;g.strokeRect(x-.5,y-.5,cs_+1,cs_+1);Lt.hc=i}});
+    label(g,landed<N?landed+" of "+N+" in":up+" up · "+(N-up)+" down",4,12,landed<N?C.cy:"#b9c6d6")}
   const base=h-34,bw=dx*.66,mid=(Lt.B-1)/2,top=Lt.final.indexOf(Lt.max);
   for(let k=0;k<Lt.B;k++){if(counts[k]>Lt.prev[k])Lt.pulse[k]=1;Lt.prev[k]=counts[k];Lt.pulse[k]*=.93;Lt.shown[k]+=(counts[k]-Lt.shown[k])*.18;
     const bh=Lt.shown[k]/Lt.max*barH,col=k<mid?C.down:k>mid?C.up:"#9fb0c3",pinned=SELP&&SELP.key==="l"+k,x=X(k,Lt.R)-bw/2;
@@ -851,6 +868,7 @@ function drawLat(t){const c0=cv("cLat");if(!c0)return;const [g,w,h]=c0;if(!LAT)r
     tag(g,"most likely",clamp(X(top,Lt.R),36,w-36),Math.max(pegH+16,base-Lt.final[top]/Lt.max*barH-dx*.2-16),C.ink,"center")}
   if(hk>=0){const n=Lt.final[hk],a=-Lt.span+(hk-.5)*Lt.bwid;if(model&&n)NEXT.sel=Lt.sets[hk];const cumBelow=Lt.final.slice(0,hk).reduce((x,y)=>x+y,0),N=Lt.balls.length;
     tipHTML=`<b>Ending ${pct(a,1)} to ${pct(a+Lt.bwid,1)}${model?" in 24 hours":" in one hour"}</b>`+trow(model?"imagined futures landing here":"real hours that moved this much",n+" of "+N+" ("+Math.round(n/N*100)+"%)")+trow("landing lower than this",Math.round(cumBelow/N*100)+"%")+trow("landing higher than this",Math.round((N-cumBelow-n)/N*100)+"%")+(model?trow("in dollars, roughly",usd0(D.base*(1+a))+" to "+usd0(D.base*(1+a+Lt.bwid))):"")+(tk&&n?trow("of these, still matching the real price",con[hk]+" of "+n):"")+`<i>A tall bar means many ${model?"of the model's futures":"past hours"} agree on that size of move. A wide spread of bars means little agreement.${tk?" The solid part of a bar is the futures still within "+TOL*100+"% of where the real price is right now; the faded part has been left behind.":""}${model&&n?" These paths are lit on the price chart; click to pin them.":""}</i>`}
+  if(Lt.hc!=null&&hv&&hv.x<72&&hv.y<18+6*8+4){const i=Lt.hc,b=Lt.balls[i];Lt.hc=null;tipHTML=`<b>One imagined future</b>`+trow("ends, 24 hours on",`<span class="${sign(b.v)}">${pct(b.v,2)}</span>`)+trow("in dollars",usd0(D.base*(1+b.v)))+(tk?trow("still matches the real price",tk.on[i]?"yes":"no, left behind"):"")+`<i>One square per future, worst on the left to best on the right. A square lights when its ball lands, and dims when the real price has moved away from that future.</i>`}else Lt.hc=null;
   if(ck){const k=binAt(ck.x);SELP=model&&k>=0&&Lt.final[k]&&!(SELP&&SELP.key==="l"+k)?Lt.sets[k]:null;renderModelText()}}
 
 /* forecast ridge in perspective: the front row is the next hour, the back row is 24 hours out */
@@ -995,11 +1013,11 @@ function syncGraph(){const s=S;if(!s.ready)return;for(const k in Gs.nodes)Gs.nod
   for(const k in Gs.nodes){const n=Gs.nodes[k];if(!n.alive){delete Gs.nodes[k];continue}if(!n.sm){const d=inner(k);n.steps=d?d.steps:[]}}
   Gs.edges=E;if(Gs.focus&&!Gs.nodes[Gs.focus])Gs.focus=null;
   /* dots: one per real event since the last snapshot */
-  const P=Gs.prev,lastR=(s.inner&&s.inner.risk&&s.inner.risk.last)||{};const rh=s.regime_hist||[],rts=rh.length?rh[rh.length-1][0]:0;Gs.prev={...F,eq:s.equity,rts,price:s.price,size:s.regime.size_mult,state:s.regime.state,tilt:s.score_tilt,made:fc.made,gen:LAB?LAB.gen:0};
+  const P=Gs.prev,lastR=(s.inner&&s.inner.risk&&s.inner.risk.last)||{};const rh=s.regime_hist||[],rts=rh.length?rh[rh.length-1][0]:0;Gs.prev={...F,eq:s.equity,rts,graded:fc.graded||0,hits:fc.hits||0,price:s.price,size:s.regime.size_mult,state:s.regime.state,tilt:s.score_tilt,made:fc.made,gen:LAB?LAB.gen:0};
   if(s.price!=null){if(P&&P.price!=null&&s.price!==P.price){pxFlash=performance.now();pxDir=s.price>P.price?1:-1;mark("px",pxDir);bgSpark(pxDir,Math.abs(s.price/P.price-1)*1e4)}PX.push(s.price);if(PX.length>300)PX.shift()}
   if(!P||F.ticks<P.ticks)return;
   const d=k=>Math.max(0,(F[k]||0)-(P[k]||0)),dir=s.price>P.price?C.up:s.price<P.price?C.down:"rgba(159,176,195,.85)",from=Gs.nodes["s:"+lastR.strategy]?"s:"+lastR.strategy:st[0]?"s:"+st[0].name:null,ipush=(key,n,col,end)=>{if(Gs.focus){const q=inner(Gs.focus);if(q&&q.flow===key)for(let i=0;i<Math.min(n,4);i++)Gs.ip.push({u:-i*.5,end:end==null?q.steps.length-1-(q.steps[q.steps.length-1].side?1:0):end,col})}};
-  if(P.eq!=null&&s.equity!==P.eq)mark("eq",s.equity>P.eq?1:-1);if(P.rts&&rts!==P.rts)mark("reg");
+  if(P.eq!=null&&s.equity!==P.eq)mark("eq",s.equity>P.eq?1:-1);if(P.graded!=null&&(fc.graded||0)>P.graded)mark("grade",(fc.hits||0)>P.hits?1:-1);if(P.rts&&rts!==P.rts)mark("reg");
   const nt=d("ticks");if(nt){mark("tick",s.price>P.price?1:s.price<P.price?-1:0);beat();emit("feed","regime",dir,nt,"price update");st.forEach(x=>emit("feed","s:"+x.name,dir,nt,"price update, read by the strategy"));emit("acct","risk","rgba(159,176,195,.6)",nt,"account value checked against today's loss cap");ipush("ticks",nt,dir)}
   const ne=d("evals");if(ne){const q=Gs.focus&&inner(Gs.focus);ipush("evals",1,dir,q&&q.flow==="evals"&&q.end?q.end():null)}
   if(d("score_checks")){emit("feed","score",C.cy,1,"price checked against the open analyst calls");ipush("score_checks",1,C.cy)}
@@ -1101,8 +1119,9 @@ function drawProg(t){const c0=cv("cProg");if(!c0)return;const [g,w,h]=c0,q=progr
   if(y0-padT>44)label(g,"progress = the white line climbing into this zone and staying "+q.need+" rounds",padL+6,padT+24,"rgba(0,230,118,.7)");
   let ly=-99;[-5,-2,-1,-.5,-.2,-.1,0,.1,.2,.5,1].filter(v=>v>=lo-.01&&v<=hi+.01).reverse().forEach(v=>{const y=Math.round(Y(v))+.5;if(Math.abs(y-ly)<16&&v!==0)return;ly=y;g.strokeStyle=v===0?C.up:C.line;g.setLineDash(v===0?[5,4]:[]);g.lineWidth=1;g.beginPath();g.moveTo(padL,y);g.lineTo(w-padR,y);g.stroke();label(g,v===0?"$0":ud(v).replace(/0$/,""),padL-6,y+3,v===0?C.up:C.dim,"right")});g.setLineDash([]);
   const line=(ix,col,lw,dash)=>{g.beginPath();let on=false;H.forEach((r,i)=>{if(r[ix]==null){on=false;return}on?g.lineTo(X(i),Y(r[ix])):g.moveTo(X(i),Y(r[ix]));on=true});g.strokeStyle=col;g.lineWidth=lw;g.setLineDash(dash||[]);g.stroke();g.setLineDash([])};
-  line(2,"rgba(159,176,195,.55)",1,[2,3]);line(4,C.warn,1.3,[6,4]);line(1,C.ink,2.2);
-  const ex=X(n-1),L=q.last,ey=Y(L[1]),tags=[[Y(L[1]),"lab's picks "+ud(L[1]),C.ink],[Y(L[2]),"if tuned-on "+ud(L[2]),"#9fb0c3"]];if(L[4]!=null)tags.push([Y(L[4]),"live now "+ud(L[4]),C.warn]);
+  const kg=n>1?Math.min(1,since("gen")/.8):1,L=q.last,ex=n>1?X(n-2)+(X(n-1)-X(n-2))*kg:X(n-1),ey=n>1?Y(H[n-2][1])+(Y(L[1])-Y(H[n-2][1]))*kg:Y(L[1]);
+  g.save();g.beginPath();g.rect(0,0,ex+.5,h);g.clip();line(2,"rgba(159,176,195,.55)",1,[2,3]);line(4,C.warn,1.3,[6,4]);line(1,C.ink,2.2);g.restore();
+  const tags=[[Y(L[1]),"lab's picks "+ud(L[1]),C.ink],[Y(L[2]),"if tuned-on "+ud(L[2]),"#9fb0c3"]];if(L[4]!=null)tags.push([Y(L[4]),"live now "+ud(L[4]),C.warn]);
   tags.sort((a,b)=>a[0]-b[0]);for(let i=1;i<tags.length;i++)if(tags[i][0]-tags[i-1][0]<15)tags[i][0]=tags[i-1][0]+15;tags.forEach(q2=>tag(g,q2[1],ex+8,clamp(q2[0],padT+10,h-padB)+4,q2[2]));
   ringEv(g,ex,ey,"gen",1.6,4,18,L[1]>0?C.up:C.ink);sphere(g,ex,ey,4,L[1]>0?C.up:"#e9eff6");
   if(L[1]<0&&Math.abs(ey-y0)>26){const x=ex-12;g.strokeStyle="rgba(0,230,118,.8)";g.lineWidth=1;g.beginPath();g.moveTo(x,ey-7);g.lineTo(x,y0+3);g.moveTo(x-4,y0+9);g.lineTo(x,y0+3);g.lineTo(x+4,y0+9);g.stroke();label(g,"still "+ud(-L[1]).slice(1)+" a slice short",x-6,(ey+y0)/2+3,C.up,"right")}     // the distance left to go
@@ -1115,7 +1134,7 @@ function drawProg(t){const c0=cv("cProg");if(!c0)return;const [g,w,h]=c0,q=progr
    Floor: two settings (how far below the price the first bid rests, and how far above the fill it sells).
    Height of a column: the average result, on history the lab never trained on, of every variant tried there. The glass sheet is breakeven.
    Width of a column: how many were tried there. Balls: the variants alive this round. Nothing moves unless a round arrives or you turn it. */
-const LD={h:null,gen:null,t0:0,yaw:-.42,pit:.42,fresh:false};{const c=LS.get("cam",{});if(isFinite(c.yaw)&&isFinite(c.pit)){LD.yaw=c.yaw;LD.pit=clamp(c.pit,.2,1.25)}}
+const LD={h:null,gen:null,t0:0,yaw:-.42,pit:.42,fresh:false,pos:new Map(),prev:new Map(),touch:0,tk:0};{const c=LS.get("cam",{});if(isFinite(c.yaw)&&isFinite(c.pit)){LD.yaw=c.yaw;LD.pit=clamp(c.pit,.2,1.25)}}
 let landSkip=false;
 const landU=(v,r)=>clamp((Math.log(clamp(v,r[0],r[1]))-Math.log(r[0]))/(Math.log(r[1])-Math.log(r[0])),0,1),landV=(u,r)=>r[0]*Math.exp(u*Math.log(r[1]/r[0]));
 const landCell=(Ld,first,tp)=>clamp(Math.floor(landU(tp,Ld.y)*Ld.ny),0,Ld.ny-1)*Ld.nx+clamp(Math.floor(landU(first,Ld.x)*Ld.nx),0,Ld.nx-1);
@@ -1127,7 +1146,9 @@ function landRange(Ld,c){const i=c%Ld.nx,j=(c-i)/Ld.nx;return [landV(i/Ld.nx,Ld.
 function drawLand(t,dt){const c0=cv("cLand");if(!c0)return;const [g,w,h]=c0,Ld=LAB&&LAB.land;if(!Ld||!Ld.tested)return emptyMsg(g,w,h,LAB&&LAB.state==="idle"?"The lab needs real prices":"The map fills in once the lab has run a round");
   const nx=Ld.nx,ny=Ld.ny,NC=nx*ny,hv=hov("cLand"),ck=take("cLand");
   if(!LD.h||LD.h.length!==NC){LD.h=Array(NC).fill(0);LD.f=Array(NC).fill(0);LD.fl=Array(NC).fill(0);LD.pn=null}
-  if(LD.gen!==LAB.gen){if(LD.pn)for(let c=0;c<NC;c++)if(Ld.n[c]>LD.pn[c])LD.fl[c]=1;LD.fresh=!!LD.pn;LD.pn=Ld.n.slice();LD.gen=LAB.gen;LD.t0=t}      // a round arrived: light the regions that were just tested
+  if(LD.gen!==LAB.gen){if(LD.pn)for(let c=0;c<NC;c++)if(Ld.n[c]>LD.pn[c])LD.fl[c]=1;LD.fresh=!!LD.pn;LD.pn=Ld.n.slice();LD.gen=LAB.gen;LD.t0=t;LD.prev=LD.pos;LD.pos=new Map();     // a round arrived: light the regions that were just tested
+    const lg=LAB.gens[LAB.gens.length-1];LD.par=new Map(lg?lg.v.map(r=>[r[0],r[1]]):[])}
+  if(LD.yawT==null)LD.yawT=LD.yaw;const tkt=EV.tick?EV.tick.t:0;if(tkt!==LD.tk){LD.tk=tkt;if(OPT.bg&&!RM&&!hov("cLand")&&!ZOOM&&performance.now()-LD.touch>15000)LD.yawT+=.011}LD.yaw+=(LD.yawT-LD.yaw)*(RM?1:Math.min(1,dt*2.5));      // the map turns one small step for every live price reading
   let lo=-.05,hi=.05;const see=v=>{if(v!=null){lo=Math.min(lo,v);hi=Math.max(hi,v)}};Ld.te.forEach(see);Ld.pop.forEach(p=>see(p[3]));see(Ld.live[2]);
   /* the floor is the worst result seen, the glass sheet is breakeven: taller is better, and only what pokes through the sheet made money */
   const A=v=>Math.asinh(v/.12),Al=A(lo),Ah=A(hi),nar=w<560,HS=nar?.45:.36,WX=nar?1.3:2.1,WZ=1,HY=v=>(A(clamp(v,lo,hi))-Al)/(Ah-Al)*HS,Y0=HY(0);
@@ -1144,11 +1165,15 @@ function drawLand(t,dt){const c0=cv("cLand");if(!c0)return;const [g,w,h]=c0,Ld=L
     if(y1-y0>.001)[[1,0],[-1,0],[0,1],[0,-1]].forEach(([ux,uz])=>{if(ux*syw+uz*cyw>=0)return;const xs=ux?[X0+ux*a,X0+ux*a]:[X0-a,X0+a],zs=uz?[Z0+uz*b,Z0+uz*b]:[Z0-b,Z0+b];
       const pts=[P(xs[0],y0,zs[0]),P(xs[1],y0,zs[1]),P(xs[1],y1,zs[1]),P(xs[0],y1,zs[0])];poly(pts,tint(col,m*(.42+.5*Math.max(0,ux*LX+uz*LZ))));pick.push({pts,q})});
     if(up===(hy>Y0)){const pts=sq(X0,Z0,a,b,hy);poly(pts,tint(col,m,.16));if(LD.fl[q.c]>0)poly(pts,`rgba(255,255,255,${(LD.fl[q.c]*.8).toFixed(2)})`);pick.push({pts,q})}};
-  const vs=Ld.pop.map((p,k)=>{const X0=(landU(p[1],Ld.x)-.5)*WX,Z0=(landU(p[2],Ld.y)-.5)*WZ,ty=HY(p[3]);let y=ty,land=1;
-    if(LD.fresh&&p[5]===0&&!RM){const d=clamp((t-LD.t0-k*.015)/.8,0,1);y=ty+(1-d*d)*.45;land=d>=1?(t-LD.t0-k*.015-.8)/.6:-1}      // tried for the first time this round: it drops onto the map
-    const s2=P(X0,y,Z0);return {p,X0,Z0,y,ty,s:s2,z:s2[2],land}});
+  const vs=Ld.pop.map((p,k)=>{const X0=(landU(p[1],Ld.x)-.5)*WX,Z0=(landU(p[2],Ld.y)-.5)*WZ,ty=HY(p[3]),pid=LD.par?LD.par.get(p[0]):0,from=p[5]===0&&pid?LD.prev.get(pid)||LD.pos.get(pid):null;let x=X0,y=ty,z=Z0,land=1,trail=null;LD.pos.set(p[0],[X0,ty,Z0]);
+    if(LD.fresh&&p[5]===0&&!RM){const d=clamp((t-LD.t0-k*.02)/.95,0,1);land=d>=1?(t-LD.t0-k*.02-.95)/.6:-1;
+      if(from){const B=u=>{const a=1-u;return [a*a*from[0]+2*a*u*(from[0]+X0)/2+u*u*X0,a*a*from[1]+2*a*u*(Math.max(from[1],ty)+.3)+u*u*ty,a*a*from[2]+2*a*u*(from[2]+Z0)/2+u*u*Z0]},e=d*d*(3-2*d);[x,y,z]=B(e);if(d<1){trail=[];for(let u=Math.max(0,e-.4);u<=e;u+=.05)trail.push(P(...B(u)))}}      // a child of a kept variant flies over from its parent
+      else y=ty+(1-d*d)*.45}                                                                                                                                                                          // a random newcomer drops in from above
+    const s2=P(x,y,z);return {p,X0,Z0,y,ty,s:s2,z:s2[2],land,trail,pid}});
+  const strands=()=>{g.lineWidth=1;vs.forEach(v=>{const a=v.pid?LD.pos.get(v.pid):null;if(!a||v.land<0)return;const m=P((a[0]+v.X0)/2,Math.max(a[1],v.ty)+.09,(a[2]+v.Z0)/2),A=P(a[0],a[1],a[2]),B=P(v.X0,v.ty,v.Z0);g.beginPath();g.moveTo(A[0],A[1]);g.quadraticCurveTo(m[0],m[1],B[0],B[1]);g.strokeStyle=v.p[3]>0?"rgba(0,230,118,.3)":"rgba(159,176,195,.16)";g.stroke()})};     // each alive variant stays tied to the variant it came from
   const ball=v=>{const p=v.p,isB=p[0]===best,col=isB?"#e9eff6":Math.abs(p[3])<=.004?"#8fa3b8":p[3]>0?C.up:C.down,f0=P(v.X0,0,v.Z0),r=(isB?5.5:3.4)*DD/(DD+v.z)*clamp(SC/420,.8,1.4);
-    g.strokeStyle=isB?"rgba(233,239,246,.8)":"rgba(159,176,195,.3)";g.lineWidth=1;g.beginPath();g.moveTo(f0[0],f0[1]);g.lineTo(v.s[0],v.s[1]);g.stroke();
+    if(v.trail&&v.trail.length>1){g.beginPath();v.trail.forEach((q,i)=>i?g.lineTo(q[0],q[1]):g.moveTo(q[0],q[1]));g.strokeStyle=col;g.globalAlpha=.7;g.lineWidth=1.3;g.stroke();g.globalAlpha=1}
+    else{g.strokeStyle=isB?"rgba(233,239,246,.8)":"rgba(159,176,195,.3)";g.lineWidth=1;g.beginPath();g.moveTo(f0[0],f0[1]);g.lineTo(v.s[0],v.s[1]);g.stroke()}
     if(v.land>=0&&v.land<1){g.beginPath();g.ellipse(v.s[0],v.s[1],r+v.land*14,(r+v.land*14)*sp,0,0,7);g.strokeStyle=col;g.globalAlpha=.8*(1-v.land);g.stroke();g.globalAlpha=1}
     sphere(g,v.s[0],v.s[1],r,col,isB?10:0);if(p[0]===fvv){g.beginPath();g.arc(v.s[0],v.s[1],r+4,0,7);g.strokeStyle=C.warn;g.lineWidth=1.4;g.stroke();g.lineWidth=1}v.r=r;pick.push({v})};
   const pass=list=>list.sort((a,b)=>b.z-a.z).forEach(o=>o.f());
@@ -1156,7 +1181,7 @@ function drawLand(t,dt){const c0=cv("cLand");if(!c0)return;const [g,w,h]=c0,Ld=L
   for(let i=1;i<nx;i++){const a=P(i*cw-WX/2,0,-WZ/2),b=P(i*cw-WX/2,0,WZ/2);g.beginPath();g.moveTo(a[0],a[1]);g.lineTo(b[0],b[1]);g.stroke()}
   for(let j=1;j<ny;j++){const a=P(-WX/2,0,j*cz-WZ/2),b=P(WX/2,0,j*cz-WZ/2);g.beginPath();g.moveTo(a[0],a[1]);g.lineTo(b[0],b[1]);g.stroke()}
   pass([...cells.filter(q=>q.n).map(q=>({z:q.z,f:()=>column(q,false)})),...vs.filter(v=>v.y<Y0).map(v=>({z:v.z-.001,f:()=>ball(v)}))]);        // everything under breakeven first
-  const sheet=sq(0,0,WX/2,WZ/2,Y0);poly(sheet,"rgba(6,9,14,.3)");poly(sheet,"rgba(53,200,255,.09)","rgba(53,200,255,.6)");                              // the breakeven sheet
+  const sheet=sq(0,0,WX/2,WZ/2,Y0);poly(sheet,"rgba(6,9,14,.3)");poly(sheet,"rgba(53,200,255,.09)","rgba(53,200,255,.6)");strands();                    // the breakeven sheet
   pass([...cells.filter(q=>q.hy>Y0).map(q=>({z:q.z,f:()=>column(q,true)})),...vs.filter(v=>v.y>=Y0).map(v=>({z:v.z-.001,f:()=>ball(v)}))]);     // then whatever pokes through it
   /* your live settings, and the best variant right now */
   const bv=vs.find(v=>v.p[0]===best),lX=(landU(Ld.live[0],Ld.x)-.5)*WX,lZ=(landU(Ld.live[1],Ld.y)-.5)*WZ,la=P(lX,0,lZ),lb=P(lX,HY(Ld.live[2]),lZ),lt=P(lX,HY(Ld.live[2])+.1,lZ),bt=bv?P(bv.X0,bv.y+.17,bv.Z0):null,lside=bt&&lt[0]>bt[0]?"left":"right";
@@ -1186,7 +1211,7 @@ function drawLand(t,dt){const c0=cv("cLand");if(!c0)return;const [g,w,h]=c0,Ld=L
   if(ck&&!landSkip&&hit){if(hit.v)canvasZoom("cLand","lv:"+hit.v.p[0],hit.v.s[0],hit.v.s[1],hit.v.r+3,ck);else{const q=hit.q,t0=P(q.X0,q.n?q.hy:0,q.Z0);canvasZoom("cLand","lc:"+q.c,t0[0],t0[1],Math.max(8,q.a*SC),ck)}}}
 (()=>{const c=$("cLand");let dr=null;c.style.touchAction="pan-y";
   c.addEventListener("pointerdown",e=>{dr={x:e.clientX,y:e.clientY,yaw:LD.yaw,pit:LD.pit,moved:false};c.setPointerCapture(e.pointerId)});
-  c.addEventListener("pointermove",e=>{if(!dr)return;const dx=e.clientX-dr.x,dy=e.clientY-dr.y;if(!dr.moved&&Math.hypot(dx,dy)<4)return;dr.moved=true;LD.yaw=dr.yaw+dx*.008;LD.pit=clamp(dr.pit+dy*.006,.2,1.25);HV=null;showTip("");kick()});
+  c.addEventListener("pointermove",e=>{if(!dr)return;const dx=e.clientX-dr.x,dy=e.clientY-dr.y;if(!dr.moved&&Math.hypot(dx,dy)<4)return;dr.moved=true;LD.yaw=LD.yawT=dr.yaw+dx*.008;LD.pit=clamp(dr.pit+dy*.006,.2,1.25);LD.touch=performance.now();HV=null;showTip("");kick()});
   const end=()=>{if(dr&&dr.moved){LS.set("cam",{yaw:LD.yaw,pit:LD.pit});landSkip=true;setTimeout(()=>landSkip=false,50)}dr=null};c.addEventListener("pointerup",end);c.addEventListener("pointercancel",end)})();
 
 /* ================= loop ================= */
