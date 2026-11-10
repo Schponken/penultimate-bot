@@ -202,7 +202,7 @@ def test_daily_loss_cap_sells_everything_and_halts():
     assert e.risk.halted and "daily loss" in e.risk.halt_reason
     assert e.broker.position(SPOT).qty == 0 and hold.get("reset")
     assert e.place(Order(SPOT, "buy", 1.0)).status == "rejected"
-    assert e.store.get("risk")["halted"] is True      # survives a restart
+    assert e.store.get("risk:paper")["halted"] is True      # survives a restart
 
 
 def test_stale_feed_cancels_orders_and_pauses():

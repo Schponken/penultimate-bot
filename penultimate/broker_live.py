@@ -94,8 +94,8 @@ class LiveBroker:
         self._known: Dict[str, Order] = {}      # every order we sent, by exchange id
         self.own_symbols: List[str] = []        # spot markets where the WHOLE exchange balance is the bot's (set by the engine)
         self.marks: Dict[str, float] = {}       # latest prices, shared with the engine
-        self.adopted_usd = 0.0                  # value of coins taken on (or gone) that did not come from the bot's own trades
-        self.adopted: List[str] = []
+        self.adopted: List[str] = []            # plain-language notes for the event log
+        self._took_on: set = set()
 
     # ---- start-up check (read-only) ----------------------------------------
     def self_check(self, symbols: List[str]) -> List[str]:
@@ -224,21 +224,22 @@ class LiveBroker:
             bal = self.ex.fetch_balance()
             self.cash = float((bal.get("total") or {}).get(self.quote) or 0.0)
             self.free_cash = float((bal.get("free") or {}).get(self.quote) or 0.0)
-            # The whole account is the bot's: whatever coin balance the exchange reports is the position, however it got there.
+            # The whole account is the bot's: the coin balance the exchange reports IS the position, however it got there.
+            # The balance is the single truth for how much is held, so a trade that shows up late can never be counted twice.
             for sym in self.own_symbols:
                 mark = self.marks.get(sym)
                 if not mark or is_perp(sym):
                     continue
                 have, p = float((bal.get("total") or {}).get(sym.split("/")[0]) or 0.0), self.position(sym)
-                diff = have - p.qty
-                if abs(diff) * mark < 1.0:                      # dust, or simply in step
-                    continue
-                if diff > 0:
-                    p.avg = (p.qty * p.avg + diff * mark) / have if have else 0.0
+                if have * mark < 1.0:
+                    have = 0.0                                  # dust
+                if have > p.qty and (have - p.qty) * mark >= 1.0 and sym not in self._took_on and not any(f.symbol == sym for f in fills):
+                    self._took_on.add(sym)
+                    self.adopted.append(f"took on {have - p.qty:.6f} {sym.split('/')[0]} (${(have - p.qty) * mark:,.2f}) that was already in the account")
+                    p.avg = (p.qty * p.avg + (have - p.qty) * mark) / have
+                elif have > 0 and p.qty <= 0:
+                    p.avg = mark
                 p.qty = have
-                self.adopted_usd += diff * mark
-                self.adopted.append(f"{'took on' if diff > 0 else 'no longer holds'} {abs(diff):.6f} {sym.split('/')[0]} "
-                                    f"(${abs(diff) * mark:,.2f}) that {'was already in' if diff > 0 else 'left'} the account")
         except Exception:
             pass                            # keep last known state; stale-feed logic covers outages
         return fills

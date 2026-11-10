@@ -21,7 +21,7 @@ from .store import Store
 from .strategies import REGISTRY
 
 FUNDING_PERIOD = 8 * 3600
-VERSION = "1.6"
+VERSION = "1.7"
 
 
 class Engine:
@@ -40,7 +40,7 @@ class Engine:
         self.perp_taker_fee = float(cfg["paper"].get("perp_taker_fee", self.taker_fee))
         self.risk = RiskEngine(limits)
         self.flow = {"evals": 0, "placed": 0, "refused": 0, "fills": 0, "reactions": 0, "score_checks": 0}   # real event counts, drawn on the dashboard
-        self.risk.load_state(self.store.get("risk", {}))
+        self.risk.load_state(self.store.get(f"risk:{self.mode}", {}))
         self.regime = Regime(**cfg.get("regime", {}))
         self.problems: List[str] = []       # anything that blocks trading, shown on the dashboard
         self.blocked = False
@@ -221,7 +221,7 @@ class Engine:
         for s in self.strategies:
             s.reset()
         self._handle_fills(fills)
-        self.store.set("risk", self.risk.to_state())
+        self.store.set(f"risk:{self.mode}", self.risk.to_state())
         self.event("reaction", f"{reason} -> cancelled all orders, closed {len(fills)} position(s), halted")
         self.save_state()
 
@@ -291,7 +291,7 @@ class Engine:
                 self.risk.resume()
                 if self.marks:
                     self.risk.day_start_equity = self.broker.equity(self.marks)
-                self.store.set("risk", self.risk.to_state())
+                self.store.set(f"risk:{self.mode}", self.risk.to_state())
                 self.event("control", "resumed by you; today's loss budget starts fresh", now)
             elif cmd == "risk_off":
                 self._set_risk_off(bool(arg), "set from dashboard", now)
@@ -301,7 +301,7 @@ class Engine:
                     self.store.set(f"strategy:{s.name}:{self.mode}:{self.cfg['feed']}", {})
                 self.risk.resume()
                 self.risk.day_key = ""
-                self.store.set("risk", self.risk.to_state())
+                self.store.set(f"risk:{self.mode}", self.risk.to_state())
                 self._skip_save = True
                 self.stop()
             elif cmd == "restart":
@@ -339,10 +339,10 @@ class Engine:
                 self._last_sync = now
                 self._handle_fills(self.broker.sync())
                 if getattr(self.broker, "adopted", None):       # coins that were already in the account now count as the bot's
-                    self.risk.day_start_equity += self.broker.adopted_usd      # not today's profit or loss
                     for line in self.broker.adopted:
                         self.event("setup", "whole account is the bot's: " + line, now)
-                    self.broker.adopted, self.broker.adopted_usd = [], 0.0
+                    self.risk.day_start_equity = max(self.risk.day_start_equity, self.broker.equity(self.marks))   # counted as money it started with, not as profit
+                    self.broker.adopted = []
             if self.spot in self.marks:
                 equity = self.broker.equity(self.marks)
                 if not self.blocked and self.risk.on_equity(equity, now):
@@ -389,7 +389,7 @@ class Engine:
         self.event("stop", "engine stopped")
 
     def save_state(self) -> None:
-        self.store.set("risk", self.risk.to_state())
+        self.store.set(f"risk:{self.mode}", self.risk.to_state())
         for s in self.strategies:
             self.store.set(f"strategy:{s.name}:{self.mode}:{self.cfg['feed']}", s.state())
         if self.broker.name == "live" and not self.blocked:
@@ -429,6 +429,12 @@ class Engine:
         equity = b.equity(self.marks) if self.marks else b.cash
         gross = b.gross_exposure(self.marks)
         start = getattr(b, "starting_cash", None)
+        if start is None and self.mode == "live" and not self.blocked and equity > 0:      # real money: "since start" is measured from what was really in the account
+            start = self.store.get("live_start_equity")
+            if not start:
+                start = round(equity, 2)
+                self.store.set("live_start_equity", start)
+                self.event("setup", f"real money: starting value recorded as ${start:,.2f}")
         snap = {
             "ready": True, "mode": self.mode, "feed": self.cfg["feed"], "venue": self.cfg["venue"],
             "ts": now, "tick": self.n, "spot": self.spot, "perp": self.perp,

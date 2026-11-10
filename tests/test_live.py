@@ -231,17 +231,35 @@ def test_the_whole_account_is_the_bots_when_told_so():
     b.own_symbols, b.marks = [SPOT], {SPOT: 75000.0}
     b.sync()
     p = b.position(SPOT)
-    assert p.qty == 0.002 and p.avg == 75000.0 and round(b.adopted_usd, 2) == 150.0 and len(b.adopted) == 1
+    assert p.qty == 0.002 and p.avg == 75000.0 and len(b.adopted) == 1 and "took on" in b.adopted[0]
     assert round(b.equity(b.marks), 2) == 250.0 and round(b.gross_exposure(b.marks), 2) == 150.0
-    b.adopted, b.adopted_usd = [], 0.0
-    b.sync()
-    assert b.adopted == []                                             # in step: nothing more to take on
+    b.adopted = []
     bal["BTC"] = 0.0005                                                # you sold some yourself in the Coinbase app
     b.sync()
-    assert b.position(SPOT).qty == 0.0005 and round(b.adopted_usd, 2) == -112.5
-    bal["BTC"] = 0.00050001                                            # dust is ignored
-    b.sync()
-    assert b.position(SPOT).qty == 0.0005
+    assert b.position(SPOT).qty == 0.0005 and b.adopted == []          # follows the balance, no fuss
     tick = Tick(1.0, SPOT, 74990, 75010, 75000)
-    b.flatten({SPOT: tick})                                            # Stop everything sells all of it
-    assert any(o["side"] == "sell" and abs(o["amount"] - 0.0005) < 1e-9 for o in ex.orders.values())
+    o = Order(SPOT, "sell", 0.0005, strategy="risk", tag="flatten")
+    b.submit(o, tick)
+    bal["BTC"] = 0.0                                                   # the balance drops before the trade is listed...
+    b.sync()
+    assert b.position(SPOT).qty == 0.0
+    ex.fill(o.venue_id, 75000.0)                                       # ...and the trade shows up late
+    fills = b.sync()
+    assert len(fills) == 1 and b.position(SPOT).qty == 0.0 and b.adopted == []     # never counted twice, never a phantom position
+    assert round(b.equity(b.marks), 2) == 100.0
+
+
+def test_practice_money_and_real_money_keep_separate_loss_budgets(tmp_path):
+    from penultimate.config import load_config, load_limits
+    from penultimate.engine import Engine
+    from penultimate.feeds import SimFeed
+    from penultimate.store import Store
+    cfg = load_config()
+    cfg["feed"] = "sim"
+    cfg["sim"]["real_delay"] = 0
+    store = Store(tmp_path / "t.db")
+    eng = Engine(cfg, load_limits(), feed=SimFeed(cfg, cfg["spot_symbol"], cfg["perp_symbol"]), store=store, data_dir=tmp_path)
+    eng.run(max_ticks=20)
+    eng.risk.halt("daily loss cap of $50 hit")
+    eng.store.set(f"risk:{eng.mode}", eng.risk.to_state())
+    assert store.get("risk:paper")["halted"] and not store.get("risk:live", {})     # a practice halt, and a $500 practice baseline, never reach real money
