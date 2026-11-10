@@ -23,6 +23,12 @@ ELITE = 10              # the best are kept unchanged and tested again
 KEEP_GENS = 36          # rounds remembered for the dashboard
 NEED_ROUNDS = 30        # how many rounds in a row a result must hold before the dashboard calls it progress
 KEEP_HIST = 360         # points of progress history kept (older ones are thinned, not dropped)
+MAX_EPS = 1100          # with years of history the episodes are spaced further apart so a round stays quick
+DEEP_MIN = 2000         # hours of history from which the lab counts as "on deep history"
+WEEK = 168
+PROOF_POOL = 300        # fixed set of variants replayed over the whole history for the walk-forward proof
+PROOF_CHUNK = 20        # how many of them are replayed per round
+PROOF_TRAIN, PROOF_TEST, PROOF_TOP = 52, 13, 10      # pick the 10 best on the past year, judge them on the next quarter, roll forward
 LAND_N = 12             # the learned map is LAND_N x LAND_N cells
 LAND_X = (0.002, 0.08)  # first bid: how far below the price (log scale)
 LAND_Y = (0.005, 0.05)  # take-profit: how far above the fill (log scale)
@@ -113,17 +119,66 @@ def simulate(bars: List[tuple], g: dict, usd: float = 95.0, maker: float = 0.005
 
 def episodes(candles: List[list]) -> List[dict]:
     """Cut hourly candles [ts, o, h, l, c, ...] into overlapping test episodes; the newest 30% are the holdout."""
-    out = []
-    for i in range(0, len(candles) - EP_HOURS + 1, STRIDE):
+    out, stride = [], STRIDE
+    while (len(candles) - EP_HOURS) // stride + 1 > MAX_EPS:
+        stride += STRIDE
+    for i in range(0, len(candles) - EP_HOURS + 1, stride):
         seg = candles[i:i + EP_HOURS]
         out.append({"t0": seg[0][0], "bars": [(r[1], r[2], r[3], r[4]) for r in seg]})
     if len(out) < 8:
         return []
     cut = int(len(out) * 0.7)
-    gap = EP_HOURS // STRIDE - 1                                    # drop episodes that straddle the boundary
+    gap = -(-EP_HOURS // stride) - 1                                # drop episodes that straddle the boundary
     for k, e in enumerate(out):
         e["split"] = "train" if k < cut - gap else ("test" if k >= cut else "skip")
     return [e for e in out if e["split"] != "skip"]
+
+
+def tstat(xs: List[float]) -> Tuple[float, float]:
+    """Average, and how many standard errors it sits from zero (about 3 or more is very unlikely to be luck)."""
+    n = len(xs)
+    if n < 2:
+        return (xs[0] if xs else 0.0), 0.0
+    m = sum(xs) / n
+    sd = math.sqrt(sum((x - m) ** 2 for x in xs) / (n - 1))
+    return m, (m / (sd / math.sqrt(n)) if sd > 1e-12 else 0.0)
+
+
+def weekly(candles: List[list], g: dict, fees: dict) -> Tuple[List[float], int]:
+    """One continuous replay over the whole history: profit in each full week, and how many buys it made."""
+    bars = [(r[1], r[2], r[3], r[4]) for r in candles]
+    _, curve, trades = simulate(bars, g, **fees)
+    out, last = [], 0.0
+    for k in range(WEEK - 1, len(curve), WEEK):
+        out.append(curve[k] - last)
+        last = curve[k]
+    return out, sum(1 for t in trades if t[1] == "buy")
+
+
+def walk_forward(pool: List[List[float]], live: List[float]) -> dict:
+    """The honest test of learning. Again and again: pick the best variants using ONLY the past year, then see how
+    those picks do over the following quarter, which they have never seen. Compare with the average variant and
+    with the live settings over exactly the same unseen weeks."""
+    W = len(live)
+    picks, avg, lv = [], [], []
+    t = PROOF_TRAIN
+    while t + PROOF_TEST <= W:
+        def fit(w):
+            m, sd = sum(w) / len(w), math.sqrt(sum((x - sum(w) / len(w)) ** 2 for x in w) / len(w))
+            return m - 0.25 * sd
+        top = sorted(pool, key=lambda w: -fit(w[t - PROOF_TRAIN:t]))[:PROOF_TOP]
+        for k in range(t, t + PROOF_TEST):
+            picks.append(sum(w[k] for w in top) / len(top))
+            avg.append(sum(w[k] for w in pool) / len(pool))
+            lv.append(live[k])
+        t += PROOF_TEST
+    pair = lambda a, b: [x - y for x, y in zip(a, b)]
+    r = lambda mt: {"mean": round(mt[0], 3), "t": round(mt[1], 2)}
+    cum = lambda xs: [round(sum(xs[:i + 1]), 2) for i in range(len(xs))]
+    return {"weeks": W, "unseen_weeks": len(picks), "picks": r(tstat(picks)), "average": r(tstat(avg)), "live_unseen": r(tstat(lv)),
+            "vs_average": r(tstat(pair(picks, avg))), "vs_live": r(tstat(pair(picks, lv))),
+            "live_all": {**r(tstat(live)), "total": round(sum(live), 2), "won": sum(x > 0 for x in live), "lost": sum(x < 0 for x in live)},
+            "ahead_in_hindsight": sum(sum(w) > 0 for w in pool), "curve": {"picks": cum(picks), "live": cum(lv), "average": cum(avg)}}
 
 
 def score(g: dict, eps: List[dict], fees: dict) -> dict:
@@ -164,6 +219,11 @@ class Lab:
         self.tested = 0
         self.hist: List[list] = []              # one line per round: [round, picks on unseen, picks on trained, champion on unseen, live on unseen, variants ahead on unseen]
         self.runs = {"pos": 0, "live": 0, "top_pos": 0, "top_live": 0}      # rounds in a row the lab's picks made money / beat the live settings, on unseen history
+        self.deep = False                       # True once it is learning from years of history instead of days
+        self.proof: Optional[dict] = None       # the walk-forward verdict (see walk_forward)
+        self._pw: List[List[float]] = []        # weekly results of the proof variants replayed so far
+        self._pw_live: Optional[tuple] = None
+        self._pw_key = None
         self.gen, self._next_id = 0, 1
         self.eps: List[dict] = []
         self._eps_key = None
@@ -191,6 +251,8 @@ class Lab:
             self.pop = [{"id": int(v["id"]), "parent": int(v["parent"]), "gene": v["gene"], "age": int(v["age"])} for v in pop]
             self.gens = list(s.get("gens") or [])[-KEEP_GENS:]
             self.genes = {int(k): g for k, g in (s.get("genes") or {}).items()}
+            self.deep = bool(s.get("deep"))
+            self.proof = s.get("proof") if isinstance(s.get("proof"), dict) and s["proof"].get("done") else None
             self.hist = [list(r) for r in (s.get("hist") or []) if isinstance(r, list) and len(r) == 6][-KEEP_HIST:]
             self.runs.update({k: int(v) for k, v in (s.get("runs") or {}).items() if k in self.runs})
             if not self.hist:                                       # saved by an older version: rebuild what the kept rounds still show
@@ -209,7 +271,8 @@ class Lab:
             tmp = self.file.with_name("lab.json.tmp")
             tmp.write_text(json.dumps({"v": 1, "gen": self.gen, "next": self._next_id, "tested": self.tested, "land": self.land,
                                        "pop": [{k: v[k] for k in ("id", "parent", "gene", "age")} for v in self.pop],
-                                       "gens": self.gens, "genes": self.genes, "hist": self.hist, "runs": self.runs}))
+                                       "gens": self.gens, "genes": self.genes, "hist": self.hist, "runs": self.runs,
+                                       "deep": self.deep, "proof": self.proof if self.proof and self.proof.get("done") else None}))
             os.replace(tmp, self.file)
         except OSError:
             pass
@@ -227,17 +290,56 @@ class Lab:
                 self.step()
             except Exception as e:                                  # the lab must never disturb the trading loop
                 self.state, self.detail_text = "error", f"{type(e).__name__}: {e}"[:160]
-            self._stop.wait(8 if self.gen < 30 else 45)
+            try:
+                self._proof_step()
+            except Exception as e:
+                self.detail_text = f"proof: {type(e).__name__}: {e}"[:160]
+            self._stop.wait(8 if self.gen < 30 or (getattr(self.hub, "deep_done", False) and len(self._pw) < PROOF_POOL) else 45)
 
     # ---- one round ------------------------------------------------------------
     def _refresh_episodes(self) -> bool:
         hist = list(getattr(self.hub, "history", []) or [])[:-1]    # leave out the hour still forming
         if len(hist) < EP_HOURS * 3:
             return False
-        key = hist[-1][0]
+        key = (hist[-1][0], len(hist))
         if key != self._eps_key:
             self.eps, self._eps_key = episodes(hist), key
+            if len(hist) >= DEEP_MIN and not self.deep:             # years of history have arrived: what was learned on a fortnight is set aside
+                with self.lock:
+                    cells = LAND_N * LAND_N
+                    self.land = {"n": [0] * cells, "tr": [0.0] * cells, "te": [0.0] * cells}
+                    self.tested, self.hist, self.gens = 0, [], []
+                    self.runs = {"pos": 0, "live": 0, "top_pos": 0, "top_live": 0}
+                    for v in self.pop:
+                        v["age"] = 0
+                    self.deep, self._rescore = True, bool(self.pop)
         return bool(self.eps)
+
+    def _proof_step(self) -> None:
+        """A few more variants replayed over the whole history each round; when all are in, the walk-forward verdict."""
+        hist = list(getattr(self.hub, "history", []) or [])[:-1]
+        if not getattr(self.hub, "deep_done", False) or len(hist) < (PROOF_TRAIN + 2 * PROOF_TEST) * WEEK:
+            return
+        hist = hist[len(hist) % WEEK:]                              # whole weeks, ending now
+        key = (hist[-1][0] // (WEEK * 3600), len(hist) // WEEK)
+        if key != self._pw_key:                                     # a new week of prices: replay again
+            self._pw, self._pw_live, self._pw_key = [], None, key
+            if self.proof:
+                self.proof = {**self.proof, "stale": True}
+        if len(self._pw) >= PROOF_POOL:
+            return
+        if self._pw_live is None:
+            self._pw_live = weekly(hist, self.live_gene, self.fees)
+        rng = random.Random(20261109 + len(self._pw))               # the same fixed set every time, so results can be compared
+        for _ in range(PROOF_CHUNK):
+            if len(self._pw) < PROOF_POOL:
+                self._pw.append(weekly(hist, random_gene(rng), self.fees)[0])
+        if len(self._pw) >= PROOF_POOL:
+            p = walk_forward(self._pw, self._pw_live[0])
+            p.update({"done": True, "pool": PROOF_POOL, "live_buys": self._pw_live[1], "made": time.time(),
+                      "from": hist[0][0], "to": hist[-1][0], "train": PROOF_TRAIN, "test": PROOF_TEST, "top": PROOF_TOP})
+            self.proof = p
+            self._save()
 
     def step(self) -> None:
         if not self.hub.live_prices:
@@ -324,6 +426,8 @@ class Lab:
                              round(self.live_score["test"], 3) if self.live_score else 0.0]}
             return {"state": self.state, "detail": self.detail_text, "gen": self.gen, "gens": self.gens, "race": race, "land": land,
                     "progress": {"hist": self.hist, "need": NEED_ROUNDS, **self.runs},
+                    "proof": self.proof, "proof_progress": round(len(self._pw) / PROOF_POOL, 3), "deep": self.deep,
+                    "history_hours": len(getattr(self.hub, "history", []) or []),
                     "best": best["id"] if best else None, "live": {k: x for k, x in (self.live_score or {}).items() if k != "each"} or None,
                     "episodes": len(self.eps), "train": n_tr, "test": len(self.eps) - n_tr,
                     "hours": EP_HOURS, "pop": POP, "elite": ELITE}
@@ -337,7 +441,7 @@ class Lab:
             return None
         levels, tp, stop, hold = plan(gene)
         paths = []
-        for e in eps:
+        for e in eps[-60:]:                                         # the most recent slices; with years of history there are too many to draw
             pnl, curve, trades = simulate(e["bars"], gene, **self.fees)
             paths.append({"t0": e["t0"], "split": e["split"], "pnl": round(pnl, 2), "eq": [round(x, 2) for x in curve],
                           "hi": [round(b[1], 1) for b in e["bars"]], "lo": [round(b[2], 1) for b in e["bars"]],

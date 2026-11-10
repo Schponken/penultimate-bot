@@ -63,6 +63,7 @@ def main() -> None:
                 if dash:
                     dash.lab = lab
             eng = Engine(cfg, load_limits(), hub=hub)
+            eng.lab = lab
             if dash:
                 dash.engine, dash.crash = eng, ""
             eng.run(max_ticks=args.ticks or None)

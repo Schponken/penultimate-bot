@@ -128,3 +128,45 @@ def test_what_the_lab_learned_survives_a_restart(tmp_path):
     assert c.gen == 0 and c.land["n"] == [0] * (LAND_N * LAND_N)
     c.step()
     assert c.gen == 1
+
+
+def test_walk_forward_proof_and_the_real_money_safeguard(tmp_path):
+    from penultimate.config import load_config, load_limits
+    from penultimate.engine import Engine
+    from penultimate.feeds import SimFeed
+    from penultimate.lab import walk_forward, tstat, weekly
+    from penultimate.store import Store
+    rng = random.Random(1)
+    good = [[rng.gauss(1.0, 1.0) for _ in range(130)] for _ in range(10)]          # ten variants that really do make money
+    bad = [[rng.gauss(-3.0, 3.0) for _ in range(130)] for _ in range(60)]
+    live = [rng.gauss(-2.5, 4.0) for _ in range(130)]
+    p = walk_forward(good + bad, live)
+    assert p["unseen_weeks"] == 78 and p["picks"]["mean"] > 0.5 and p["picks"]["t"] > 3          # picking on the past found them
+    assert p["vs_average"]["t"] > 3 and p["vs_live"]["t"] > 3 and p["live_all"]["t"] < -3 and p["ahead_in_hindsight"] == 10
+    noise = [[rng.gauss(0, 3.0) for _ in range(130)] for _ in range(70)]
+    assert abs(walk_forward(noise, live)["vs_average"]["t"]) < 3                                # nothing to learn: it does not claim to have learned
+    assert tstat([1.0, 1.0, 1.0])[1] == 0.0 and tstat([])[0] == 0.0
+
+    hist, px = [], 70000.0
+    for i in range(168 * 4):
+        o = px
+        px *= 1 + rng.gauss(0, 0.006)
+        hist.append([1_700_000_000 + i * 3600, o, max(o, px) * 1.003, min(o, px) * 0.997, px, 1.0])
+    w, buys = weekly(hist, {"levels": [0.01, 0.02], "tp": 0.01, "stop": 0.05, "hold": 24}, {"usd": 95.0})
+    assert len(w) == 4 and buys > 0
+
+    cfg = load_config()
+    cfg["feed"] = "sim"
+    cfg["sim"]["real_delay"] = 0
+    eng = Engine(cfg, load_limits(), feed=SimFeed(cfg, cfg["spot_symbol"], cfg["perp_symbol"]), store=Store(tmp_path / "t.db"), data_dir=tmp_path)
+
+    class L:
+        proof = {"done": True, "weeks": 158, "live_all": {"mean": -2.7, "t": -4.75, "won": 57, "lost": 90}}
+    eng.lab = L()
+    assert eng.gate() == "" and eng.can_add_risk()                      # practice money is never held back
+    eng.mode = "live"
+    assert "lost $2.70 a week" in eng.gate() and not eng.can_add_risk()  # real money stands aside from a proven loser
+    eng._overruled = True
+    assert eng.gate() == "" and eng.gate_reason() and eng.can_add_risk()  # unless you overrule it
+    eng._overruled, L.proof = False, {"done": True, "weeks": 158, "live_all": {"mean": -0.4, "t": -1.1, "won": 70, "lost": 80}}
+    assert eng.gate() == ""                                              # a loss that could be bad luck does not trigger it

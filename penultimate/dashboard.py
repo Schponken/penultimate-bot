@@ -162,6 +162,9 @@ class Dash:
                 return False, "updates from a repository are not set up on this machine"
             self.updater.request(install=cmd == "update")
             return True, "installing the new version" if cmd == "update" else "checking for a new version"
+        if cmd == "trade_unproven":
+            eng.commands.put(("trade_unproven", bool(body.get("on"))))
+            return True, "trading anyway" if body.get("on") else "standing aside until something is proven"
         if cmd == "risk_off":
             eng.commands.put(("risk_off", bool(body.get("on"))))
             return True, "risk-off updated"

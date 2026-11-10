@@ -13,11 +13,13 @@ import os
 import subprocess
 import threading
 import time
+import urllib.request
 from pathlib import Path
 from typing import List, Optional
 
 TF = "1h"
 TF_S = 3600
+DEEP_HOURS = 26280          # three years of hourly prices kept for the strategy lab, so its verdicts rest on more than a fortnight
 FRESH_S = 3 * 3600          # a forecast older than this is not shown as current
 
 
@@ -39,6 +41,15 @@ class ForecastHub:
         self.observed: List[float] = []         # recent real hourly moves, shown until the model is up
         self.candles: List[list] = []           # recent hourly candles for the price chart
         self.history: List[list] = []           # all hourly candles held, for the strategy lab
+        self.deep_done = False                  # True once the three-year history is complete
+        self._deep: dict = {}
+        try:
+            saved = json.loads((self.data_dir / "history.json").read_text())
+            if saved.get("symbol") == self.symbol:
+                self._deep = {int(r[0]): [int(r[0])] + [float(x) for x in r[1:6]] for r in saved["candles"]}
+                self.history = [self._deep[k] for k in sorted(self._deep)]
+        except (OSError, ValueError, KeyError, TypeError, IndexError):
+            pass
         self.candle_error = ""
         self.fetches, self.reads = 0, 0      # candle refreshes and forecasts read, for the dashboard
         self._mtime = 0.0
@@ -84,14 +95,52 @@ class ForecastHub:
                         self._write("candles.json", {"symbol": self.symbol, "timeframe_s": TF_S,
                                                      "candles": candles, "written": time.time()})
                         self.candles = [c[:5] for c in candles[-96:]]
-                        self.history = candles
+                        self._merge(candles)
                         self.fetches += 1
                         closes = [c[4] for c in candles[-49:]]
                         self.observed = [round(b / a - 1, 5) for a, b in zip(closes, closes[1:])]
+                    self._backfill(ex)
                 except Exception as e:
                     self.candle_error = f"{type(e).__name__}: {e}"
                     ex = None
-            self._stop.wait(300)
+            self._stop.wait(300 if self.deep_done or not self.live_prices else 4)
+
+    # ---- three years of hourly prices for the lab (public data, fetched once, then kept up to date) ----
+    def _merge(self, rows: List[list]) -> None:
+        before = len(self._deep)
+        newest = max(self._deep) if self._deep else 0
+        for r in rows:
+            self._deep[int(r[0])] = r
+        self.history = [self._deep[k] for k in sorted(self._deep)][-(DEEP_HOURS + 400):]
+        if len(self._deep) != before or (rows and rows[-1][0] != newest):
+            self._write("history.json", {"symbol": self.symbol, "timeframe_s": TF_S, "candles": self.history})
+
+    def _page(self, ex, t0: int, t1: int) -> List[list]:
+        """One page of older hourly candles, [ts, open, high, low, close, volume], oldest first."""
+        if self.venue == "coinbase":
+            iso = lambda t: time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(t))
+            url = (f"https://api.exchange.coinbase.com/products/{self.symbol.replace('/', '-')}/candles"
+                   f"?granularity={TF_S}&start={iso(t0)}&end={iso(t1)}")
+            with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "penultimate-bot"}), timeout=20) as r:
+                return sorted([int(x[0]), float(x[3]), float(x[2]), float(x[1]), float(x[4]), float(x[5])] for x in json.loads(r.read()))
+        rows = ex.fetch_ohlcv(self.symbol, TF, since=t0 * 1000, limit=300)
+        return [[int(r[0] // 1000)] + [float(x) for x in r[1:6]] for r in rows if None not in r[:6] and r[0] // 1000 < t1]
+
+    def _backfill(self, ex, pages: int = 6) -> None:
+        if self.deep_done or not self._deep:
+            return
+        for _ in range(pages):
+            oldest, newest = min(self._deep), max(self._deep)
+            if newest - oldest >= DEEP_HOURS * TF_S:
+                self.deep_done = True
+                return
+            rows = self._page(ex, oldest - 300 * TF_S, oldest)
+            rows = [r for r in rows if r[0] < oldest]
+            if not rows:                                            # the exchange has nothing older: this is all there is
+                self.deep_done = True
+                return
+            self._merge(rows)
+            time.sleep(0.3)
 
     def _write(self, name: str, obj: dict) -> None:
         tmp = self.data_dir / (name + ".tmp")

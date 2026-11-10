@@ -21,7 +21,7 @@ from .store import Store
 from .strategies import REGISTRY
 
 FUNDING_PERIOD = 8 * 3600
-VERSION = "2.0"
+VERSION = "2.1"
 
 
 class Engine:
@@ -29,6 +29,9 @@ class Engine:
                  store: Optional[Store] = None, data_dir: Optional[Path] = None, hub=None):
         self.cfg, self.limits = cfg, limits
         self.hub = hub                      # forecast model plumbing (optional)
+        self.lab = None                     # set by the program: the lab's walk-forward verdict can make real money stand aside
+        self._gated = False
+        self._overruled = False
         self.reexec = False                 # True = restart the whole program (picks up updated files)
         self._last_hub = 0.0
         self.mode = cfg["mode"]
@@ -40,6 +43,7 @@ class Engine:
         self.perp_taker_fee = float(cfg["paper"].get("perp_taker_fee", self.taker_fee))
         self.risk = RiskEngine(limits)
         self.flow = {"evals": 0, "placed": 0, "refused": 0, "fills": 0, "reactions": 0, "score_checks": 0}   # real event counts, drawn on the dashboard
+        self._overruled = bool(self.store.get("trade_unproven"))
         saved_risk = self.store.get(f"risk:{self.mode}", {}) or {}
         self.risk.load_state(saved_risk if saved_risk.get("v") == 3 else {})    # states saved before v1.9 could hold a loss baseline from the wrong account
         self.regime = Regime(**cfg.get("regime", {}))
@@ -163,7 +167,22 @@ class Engine:
         return b.cash - sum(o.qty * (o.price or 0) for o in b.open_orders if o.side == "buy" and ":" not in o.symbol)
 
     def can_add_risk(self) -> bool:
-        return not self.risk.halted and self.feed.now() >= self.risk.paused_until
+        return not self.risk.halted and self.feed.now() >= self.risk.paused_until and not self.gate()
+
+    def gate(self) -> str:
+        """With real money: if three years of real prices say the live settings reliably lose, no new buys are placed.
+        This can only ever hold the bot back; it never places, sizes or changes an order. You can overrule it from the dashboard."""
+        return "" if self._overruled else self.gate_reason()
+
+    def gate_reason(self) -> str:
+        if self.mode != "live":
+            return ""
+        p = getattr(self.lab, "proof", None) if self.lab else None
+        la = (p or {}).get("live_all") or {}
+        if p and p.get("done") and la.get("mean", 0) < 0 and la.get("t", 0) <= -3:
+            return (f"over {p['weeks']} weeks of real prices these settings lost ${-la['mean']:.2f} a week on average "
+                    f"({la['lost']} losing weeks, {la['won']} winning)")
+        return ""
 
     def would_pass(self, order: Order):
         """Ask the risk engine about an order without sending it."""
@@ -294,6 +313,10 @@ class Engine:
                     self.risk.day_start_equity = self.broker.equity(self.marks)
                 self.store.set(f"risk:{self.mode}", {**self.risk.to_state(), "v": 3})
                 self.event("control", "resumed by you; today's loss budget starts fresh", now)
+            elif cmd == "trade_unproven":
+                self.store.set("trade_unproven", bool(arg))
+                self._overruled = bool(arg)
+                self.event("control", "you chose to trade settings that lost in testing" if arg else "standing aside again until something is proven", now)
             elif cmd == "risk_off":
                 self._set_risk_off(bool(arg), "set from dashboard", now)
             elif cmd == "reset_paper" and self.mode == "paper":
@@ -335,6 +358,17 @@ class Engine:
                 if t.symbol == self.perp:
                     self._funding(t)
             self.n += 1
+            why = self.gate() if self.n % 5 == 0 or self._gated else ""
+            if why and not self._gated:
+                for o in list(self.broker.open_orders):
+                    if o.side == "buy":
+                        self.broker.cancel(o.id)
+                self.event("reaction", f"standing aside with real money: {why}. Resting buys cancelled; anything held is still managed. "
+                                       "You can overrule this on the dashboard.", now)
+            if self._gated and not why and self.n % 5 == 0:
+                self.event("control", "no longer standing aside", now)
+            if self.n % 5 == 0 or why:
+                self._gated = bool(why)
             self._react(now, batch)
             if live_broker and not self.blocked and now - self._last_sync > 2:
                 self._last_sync = now
@@ -443,6 +477,7 @@ class Engine:
             "funding_rate": self.ticks[self.perp].funding_rate if self.perp in self.ticks else None,
             "equity": equity, "cash": b.cash, "free_cash": self.free_cash(), "budget": L.max_gross_exposure_usd, "day_pnl": self.risk.day_pnl(equity),
             "total_pnl": equity - start if start else None,
+            "gate": {"why": self.gate(), "reason": self.gate_reason(), "overruled": self._overruled},
             "realized": b.realized, "fees": b.fees, "funding": b.funding,
             "positions": [{"symbol": s, "qty": p.qty, "avg": p.avg, "mark": self.marks.get(s, p.avg),
                            "value": p.qty * self.marks.get(s, p.avg)}
@@ -475,7 +510,7 @@ class Engine:
             self._last_status = time.time()
             keep = ("mode", "feed", "venue", "ts", "tick", "price", "equity", "cash", "free_cash", "day_pnl",
                     "total_pnl", "fees", "positions", "regime", "risk", "strategies", "health", "problems", "blocked",
-                    "fc", "version")
+                    "fc", "version", "gate", "orders")
             try:
                 tmp = self.data_dir / "status.json.tmp"
                 tmp.write_text(json.dumps({**{k: snap[k] for k in keep}, "orders": len(snap["orders"]),
