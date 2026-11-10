@@ -116,10 +116,13 @@ tr.xd td{white-space:normal;text-align:left;background:var(--panel2);padding:2px
 .bar i{display:block;height:100%;background:var(--up);transition:width .5s}.bar i.hot{background:var(--down)}
 .row{display:flex;justify-content:space-between;gap:8px;font-size:12px}
 .lim{border-radius:4px;margin:0 -6px;padding:1px 6px}
-.prow{flex:1;min-height:0;display:flex;gap:16px}.prow .cw{flex:1.55}.goals{flex:1;min-width:260px;overflow:auto;font-size:12.5px}body.narrow .prow{flex-direction:column}body.narrow .prow .cw{min-height:200px}
+.prow{flex:1;min-height:0;display:flex;gap:16px}.prow .cw{flex:1.55}.hprow .cw{flex:1}.hprow .goals{min-width:330px}.goals{flex:1;min-width:260px;overflow:auto;font-size:12.5px}body.narrow .prow{flex-direction:column}body.narrow .prow .cw{min-height:200px}
 .goal{border-radius:5px;margin:0 -6px 2px;padding:5px 6px 1px;cursor:pointer}.goal:hover,.goal.on{background:rgba(53,200,255,.07)}.goal .row{display:flex;justify-content:space-between;gap:10px}.goal .row b{font-weight:600}
 .goal .tk{display:inline-block;width:15px;height:15px;line-height:15px;text-align:center;border-radius:50%;border:1px solid var(--dim);color:var(--dim);font-size:10px;margin-right:7px}.goal.done .tk{background:var(--up);border-color:var(--up);color:#04060a}
-.goal .gs{color:var(--dim);font-size:11.5px;margin:-4px 0 5px 22px}.goal .bar{margin-left:22px}.goal .bar i{background:var(--cy)}.goal.done .bar i{background:var(--up)}.htab{width:100%;border-collapse:collapse;font:11.5px var(--mono);margin:6px 0 8px}.htab td,.htab th{padding:4px 6px;border-bottom:1px solid var(--line);text-align:right}.htab td:first-child,.htab th:first-child{text-align:left}.htab tr.sel td{background:rgba(53,200,255,.09);color:var(--ink)}.htab tr{cursor:pointer}
+.goal .gs{color:var(--dim);font-size:11.5px;margin:-4px 0 5px 22px}.goal .bar{margin-left:22px}.goal .bar i{background:var(--cy)}.goal.done .bar i{background:var(--up)}.dsum{margin:0 0 10px;line-height:1.5}.dasset h3{font:600 13px var(--mono);margin:10px 0 2px;color:var(--cy)}.dgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 18px}body.narrow .dgrid{grid-template-columns:1fr}
+.dgrid h4,.dlist h4{font:600 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;margin:8px 0 2px;color:var(--dim)}.dgrid h4.up{color:var(--up)}.dgrid h4.down{color:var(--down)}.dgrid ul,.dlist ul{margin:0;padding-left:16px;font-size:12.5px;line-height:1.45}.dgrid li,.dlist li{margin:0 0 3px}
+.dsrc a{color:var(--cy);text-decoration:none;font-size:11.5px;margin-right:12px;white-space:nowrap}.dsrc a:hover{text-decoration:underline}
+.htab{width:100%;border-collapse:collapse;font:11.5px var(--mono);margin:6px 0 8px}.htab td,.htab th{padding:4px 6px;border-bottom:1px solid var(--line);text-align:right}.htab td:first-child,.htab th:first-child{text-align:left}.htab tr.sel td{background:rgba(53,200,255,.09);color:var(--ink)}.htab tr{cursor:pointer}
 .verd{font-size:14px;margin:0 0 8px}.verd b{color:var(--ink)}
 .ev{font:11.5px var(--mono);padding:3px 4px;border-bottom:1px solid var(--line);display:flex;gap:8px}
 .ev.new{animation:evin .7s var(--ease)}.ev.new .d{animation:typein .9s steps(48,end)}@keyframes typein{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}@keyframes evin{from{opacity:0;transform:translateX(-10px);background:rgba(53,200,255,.18)}}
@@ -199,6 +202,8 @@ const C={bg:"#04060a",panel:"#090d13",line:"#17212d",ink:"#e9eff6",dim:"#6f7f93"
 /* ================= widgets: move, resize, fold, full screen ================= */
 const R=36,G=8,DEF={},EL={},grid=$("grid"),ph=$("ph"),veil=$("veil");
 const WT={acct:"Your account value over time. Green area: above where it started. Red: below.",price:"Left of NOW: what the price really did, one bar per hour. Right of NOW: 48 possible next 24 hours imagined by the forecast model (shadow only); the bright ones still match the real price. Triangles: the bot's own trades. Bottom strip: every live price reading.",
+  desk:"A research brief written twice a week by a scheduled Claude session: what changed, the case for and against, and what would change the picture. Reading material, not instructions. Nothing in it trades.",
+  worth:"Plain arithmetic: what running this costs you in a year, and how big the account has to be before a normal year of market growth covers it.",
   hold:"The plain way to get what the market gives: keep a chosen share of the account in the coin and leave it alone. No prediction, almost no fees. It goes down when the market goes down.",
   prog:"The one place to see whether the strategy lab and the forecast model are getting anywhere, and exactly what getting somewhere would look like.",
   land:"Test only. A 3D map of everything the lab has tried. Floor: two settings. Height: the average result on history the lab never trained on. The blue sheet is breakeven. Drag to turn it.",
@@ -208,33 +213,35 @@ const WT={acct:"Your account value over time. Green area: above where it started
   paths:"How every lab variant would have done through real history. Click a line to see each of its trades.",limits:"The hard caps the bot cannot exceed, and how much of each is in use.",pos:"What the bot holds and the orders it has waiting.",fills:"Every trade the bot has made.",
   events:"A plain log of what the bot did and why.",score:"Analysts and the forecast model, scored on whether their calls came true.",calls:"Price calls still waiting to be proved right or wrong.",setup:"The four steps to trading real money."};
 const cwrap=id=>`<div class="cw"><canvas id="${id}"></canvas></div>`;
-[["acct","Account",0,0,5,9,3,4,`<div class="hero" data-x="k:acct" data-tip="Click to zoom into the full breakdown"><div><small>Account value</small><div class="big" id="kEq">–</div></div>
+[["acct","Account",0,0,4,11,3,4,`<div class="hero" data-x="k:acct" data-tip="Click to zoom into the full breakdown"><div><small>Account value</small><div class="big" id="kEq">–</div></div>
    <div class="stat" data-tip="Change in account value since midnight UTC. The daily-loss cap watches this number."><small>Today</small><b id="kDay">–</b></div><div class="stat" data-tip="Change since the account started, after all fees."><small>Since start</small><b id="kTot">–</b></div><div class="stat" data-tip="Total paid to the exchange in trading fees. Already taken out of every result shown."><small>Fees paid</small><b id="kFee">–</b></div><div class="stat" data-tip="Funding payments collected by the hedged strategy. Zero unless that strategy has a position."><small>Funding</small><b id="kFun">–</b></div></div><div id="heroX"></div>${cwrap("cCurve")}`],
- ["price","Price",5,0,7,9,4,4,cwrap("cPrice")],
- ["hold","Hold the market",0,9,12,9,4,6,`<div class="prow">${cwrap("cHold")}<div class="goals" id="holdUI"></div></div>`],
- ["lat","Probability lattice",0,18,4,9,3,5,`<div class="side">${cwrap("cLat")}<div class="nums" id="latStats"></div></div>`],
- ["ridge","Forecast ridge",4,18,5,9,3,5,cwrap("cRidge")],
- ["matrix","Odds matrix",9,18,3,9,3,4,`<div class="fill"><div id="matrix"></div><p class="note" id="modelLine"></p></div>`],
- ["graph","Signal graph",0,27,8,10,4,6,cwrap("cGraph")],
- ["reg","Market state",8,27,4,10,3,5,`${cwrap("cReg")}<div class="mix" id="regMix"></div><div id="regime"></div>`],
- ["prog","Is it learning?",0,37,12,10,4,6,`<div class="prow">${cwrap("cProg")}<div class="goals" id="goals"></div></div>`],
- ["lab","Strategy lab",0,47,7,10,4,6,cwrap("cLab")],
- ["paths","Trade paths",7,47,5,10,4,6,cwrap("cPaths")],
- ["land","What the lab has learned",0,57,12,12,4,7,cwrap("cLand")],
- ["limits","Hard limits in use",0,69,4,7,3,4,`<div class="fill"><div id="limits"></div><div id="strats"></div></div>`],
- ["pos","Positions and orders",4,69,4,7,3,3,`<div class="fill" id="pos"></div>`],
- ["fills","Trades",8,69,4,7,3,3,`<div class="fill" id="fills"></div>`],
- ["events","What the bot is doing",0,76,12,6,4,3,`<div class="fill" id="events"></div>`],
- ["score","Forecaster scoreboard",0,82,6,8,3,3,`<div class="fill" id="score"></div>`],
- ["calls","Open calls being tracked",6,82,6,8,3,3,`<div class="fill" id="calls"></div>`],
- ["setup","Setup",0,90,12,11,4,4,`<div class="fill" id="setup"></div>`]
+ ["price","Price",0,22,7,9,4,4,cwrap("cPrice")],
+ ["hold","Hold the market",4,0,8,11,4,6,`<div class="prow hprow">${cwrap("cHold")}<div class="goals" id="holdUI"></div></div>`],
+ ["desk","Research desk",0,11,7,11,4,5,`<div class="fill" id="desk"></div>`],
+ ["worth","Is it worth running?",7,11,5,11,3,5,`<div class="fill" id="worth"></div>`],
+ ["lat","Probability lattice",0,41,4,9,3,5,`<div class="side">${cwrap("cLat")}<div class="nums" id="latStats"></div></div>`],
+ ["ridge","Forecast ridge",4,41,5,9,3,5,cwrap("cRidge")],
+ ["matrix","Odds matrix",9,41,3,9,3,4,`<div class="fill"><div id="matrix"></div><p class="note" id="modelLine"></p></div>`],
+ ["graph","Signal graph",0,50,8,10,4,6,cwrap("cGraph")],
+ ["reg","Market state",7,22,5,9,3,5,`${cwrap("cReg")}<div class="mix" id="regMix"></div><div id="regime"></div>`],
+ ["prog","Is it learning?",0,31,12,10,4,6,`<div class="prow">${cwrap("cProg")}<div class="goals" id="goals"></div></div>`],
+ ["lab","Strategy lab",0,60,7,10,4,6,cwrap("cLab")],
+ ["paths","Trade paths",7,60,5,10,4,6,cwrap("cPaths")],
+ ["land","What the lab has learned",0,70,12,12,4,7,cwrap("cLand")],
+ ["limits","Hard limits in use",8,50,4,10,3,4,`<div class="fill"><div id="limits"></div><div id="strats"></div></div>`],
+ ["pos","Positions and orders",0,82,6,7,3,3,`<div class="fill" id="pos"></div>`],
+ ["fills","Trades",6,82,6,7,3,3,`<div class="fill" id="fills"></div>`],
+ ["events","What the bot is doing",0,89,12,6,4,3,`<div class="fill" id="events"></div>`],
+ ["score","Forecaster scoreboard",0,95,6,8,3,3,`<div class="fill" id="score"></div>`],
+ ["calls","Open calls being tracked",6,95,6,8,3,3,`<div class="fill" id="calls"></div>`],
+ ["setup","Setup",0,103,12,11,4,4,`<div class="fill" id="setup"></div>`]
 ].forEach(([id,t,x,y,w,h,mw,mh,body])=>{DEF[id]={id,x,y,w,h,mw,mh,t};
   const el=document.createElement("section");el.className="w";el.id="w-"+id;el.dataset.id=id;
   el.innerHTML=`<h2 class="wh"><span class="grip" aria-hidden="true">⠿</span><span class="wt" id="t-${id}">${t}</span><span class="wn" id="n-${id}"></span><span class="wb"><button data-a="min" title="Fold or unfold" aria-label="Fold or unfold ${t}">–</button><button data-a="max" title="Full screen (or double-click the title)" aria-label="Full screen ${t}">⤢</button></span></h2><div class="wbody">${body}</div><i class="rs" title="Drag to resize"></i>`;
   el.style.animationDelay=(Object.keys(EL).length*45)+"ms";grid.appendChild(el);EL[id]=el;
   if(WT[id])el.querySelector(".wt").dataset.tip=WT[id];
   if(["acct","price","lat","ridge","matrix","graph","reg","lab","paths","land","prog","hold"].includes(id)){const c=document.createElement("div");c.className="cap";c.id="cap-"+id;el.querySelector(".wbody").appendChild(c)}});
-let OPT=Object.assign({lock:false,auto:true,bg:true,hint:true},LS.get("opt",{})),L=LS.get("layout",null),MAXED=null,narrow=false,BUSY=false,FLOADED=false;
+let OPT=Object.assign({lock:false,auto:true,bg:true,hint:true},LS.get("opt",{})),L=LS.get("lv",1)<3?null:LS.get("layout",null),MAXED=null,narrow=false,BUSY=false,FLOADED=false;
 function freshLayout(){const o={};for(const id in DEF){const d=DEF[id];o[id]={id,x:d.x,y:d.y,w:d.w,h:d.h,H:d.h,mode:"auto",min:false}}return o}
 
 const hit=(a,b)=>a.id!==b.id&&a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;
@@ -247,7 +254,7 @@ if(!L||typeof L!=="object")L=freshLayout();else{const fresh=freshLayout();let ad
   for(const id in DEF){const it=L[id];if(!it||!(it.w>=1&&it.h>=1&&it.x>=0&&it.x+it.w<=12)){L[id]=fresh[id];added=true}}
   if(LS.get("lv",1)<2){for(const id of ["acct","price","lat","ridge","matrix"])if(L[id]&&L[id]!==fresh[id]){L[id].H+=2;if(!L[id].min)L[id].h=L[id].H}for(const id of ["graph","reg","lab","paths"])if(L[id]&&L[id]!==fresh[id]){L[id].H+=1;if(!L[id].min)L[id].h=L[id].H}added=true}   // one-time: room for the readings under each chart
   if(added)arrange(Object.values(L))}
-LS.set("lv",2);
+LS.set("lv",3);
 const copyL=()=>JSON.parse(JSON.stringify(L));
 function view(){narrow=grid.clientWidth<760;document.body.classList.toggle("narrow",narrow);if(!narrow)return L;
   const v=copyL();Object.values(v).sort((a,b)=>a.y-b.y||a.x-b.x).forEach((it,i)=>{it.x=0;it.w=12;it.y=i*100});arrange(Object.values(v));return v}
@@ -404,7 +411,7 @@ function render(){
   /* the cockpit: what is happening in one sentence, and the money buttons */
   const nOd=(s.orders||[]).length,nPs=(s.positions||[]).length,held0=(s.positions||[]).reduce((a,x)=>a+Math.abs(x.value),0),coin=esc(s.spot.split("/")[0]),funded0=live&&s.free_cash>=s.limits.max_order_usd;
   setH("say",s.blocked?"Blocked: "+esc((s.problems||[])[0]||"see below"):r.halted?"Halted. Everything is sold and nothing trades until you resume.":
-    (live?"Live, real money":"Practice, fake money")+": "+(nPs?`holding ${usd0(held0)} of ${coin}`:live&&!funded0?"waiting for dollars to arrive":nOd?`${nOd} bid${nOd>1?"s":""} waiting below the price`:"watching")+`. <i>${coin} ${usd0(price)} · today ${usd(s.day_pnl)}</i>`);
+    (live?"Live, real money":"Practice, fake money")+": "+(s.hold&&s.hold.pct>0?`holding the market, ${usd0(s.hold.value)} of ${coin} against a ${s.hold.pct}% target`:nPs?`holding ${usd0(held0)} of ${coin}`:s.gate&&s.gate.why?`all ${usd0(s.equity)} in cash. Dip-buying is standing aside because it lost in testing; holding the market is off until you choose a share`:live&&!funded0?"waiting for dollars to arrive":nOd?`${nOd} bid${nOd>1?"s":""} waiting below the price`:"watching")+`. <i>${coin} ${usd0(price)} · today ${usd(s.day_pnl)}</i>`);
   setH("cockBtns",`<button onclick="openZoom('m:add',this.getBoundingClientRect(),event.clientX,event.clientY)">Add money</button> <button onclick="openZoom('m:out',this.getBoundingClientRect(),event.clientX,event.clientY)">Take money out</button> `+
     (r.halted?`<button class="go" onclick="post({cmd:'resume'})">Resume</button>`:live?`<button onclick="post({cmd:'mode',target:'paper_live'})">Back to practice</button>`:s.keys_saved?`<button class="stop" onclick="goLive()">Go live</button>`:`<button onclick="document.getElementById('w-setup').scrollIntoView({behavior:'smooth',block:'center'});ping('setup')">Set up real money</button>`));
   const CB=`<a href="https://www.coinbase.com/" target="_blank" rel="noopener">Open Coinbase</a>`;
@@ -479,7 +486,7 @@ function render(){
       <button class="stop" onclick="goLive()">Go live with real money</button>
       ${s.mode==="paper"?`<button onclick="if(confirm('Wipe the practice account and start over?'))post({cmd:'reset_paper'})">Reset practice account</button>`:""}
     </div>`}
-  renderModelText();track();syncGraph();labNote();renderGoals();renderHold();captions();autoGrow();autoFold();zoomRefresh();
+  renderModelText();track();syncGraph();labNote();renderGoals();renderHold();renderDesk();renderWorth();captions();autoGrow();autoFold();zoomRefresh();
 }
 function kronosRow(){const f=S.fc||{};if(!f.enabled)return"";const miss=(f.graded||0)-(f.hits||0);
   return xr("s:kronos",`<td class="cy">Kronos model (shadow)</td><td class="up">${f.hits||0}</td><td class="down">${miss}</td><td>–</td><td>${f.hit_rate==null?"new":f.hit_rate.toFixed(2)}</td>`,5,
@@ -1100,6 +1107,36 @@ function drawInner(g,w,h,t,dt,a,hv,ck){const id=Gs.focus||Gs.last,d=inner(id);if
   g.restore()}
 
 
+/* ================= research desk =================
+   A brief written twice a week by a scheduled Claude session and saved beside the bot. The server already strips it down to
+   plain text and web links; here every piece is escaped again. It is reading material: nothing in it can trade. */
+let BRIEF=null,briefT=0;
+async function loadBrief(){briefT=Date.now();try{BRIEF=(await (await fetch("/api/research")).json()).brief}catch(e){}}
+function renderDesk(){if(Date.now()-briefT>300000)loadBrief();const b=BRIEF;
+  if(!b||!b.headline){setT("n-desk","no brief yet");setH("desk",`<p class="note">No research brief yet. A scheduled Claude session writes one twice a week and it appears here by itself: what changed, the case for and against, and what would change the picture. It is research to read, not an instruction, and nothing in it trades.</p>`);return}
+  const hrs=(Date.now()/1000-b.made)/3600,ago=hrs<1?"just now":hrs<36?Math.round(hrs)+" hours ago":Math.round(hrs/24)+" days ago",li=a=>a&&a.length?`<ul>${a.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:`<ul><li class="dim">nothing noted</li></ul>`;
+  setT("n-desk","written "+ago+(hrs>24*6?" · overdue, the next one should have arrived":""));
+  setH("desk",`<p class="verd"><b>${esc(b.headline)}</b></p><p class="dsum">${esc(b.summary)}</p>`+
+    b.assets.map(a=>`<div class="dasset"><h3>${esc(a.name)}</h3><p class="note" style="margin:0 0 2px">${esc(a.now)}</p><div class="dgrid"><div><h4>What changed</h4>${li(a.changed)}</div><div><h4>What would change the picture</h4>${li(a.would_change)}</div><div><h4 class="up">The case for</h4>${li(a.case_for)}</div><div><h4 class="down">The case against</h4>${li(a.case_against)}</div></div></div>`).join("")+
+    `<div class="dlist">`+(b.market.length?`<h4>The wider market</h4>${li(b.market)}`:"")+(b.ahead.length?`<h4>Dates ahead</h4>${li(b.ahead)}`:"")+`</div>`+
+    (b.sources.length?`<p class="dsrc" style="margin:10px 0 4px">${b.sources.map(x=>`<a href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">${esc(x.title||x.url)}</a>`).join("")}</p>`:"")+
+    `<p class="note">Written ${new Date(b.made*1000).toLocaleString()} by a scheduled Claude session from public sources. Research, not a recommendation: it does not tell you or the bot to buy or sell anything.</p>`)}
+
+/* ================= is it worth running? =================
+   Arithmetic only: yearly running cost, divided by a year of growth on the part of the account that is held. */
+let WCOST=Object.assign({server:0,plan:0},LS.get("cost",{}));
+function setCost(k,v){WCOST[k]=v;LS.set("cost",WCOST);render()}
+function renderWorth(){const h=S.hold||{},eq=S.equity||0,pctSel=h.pct>0?h.pct:(HSEL?HSEL.pct:50),share=pctSel/100,cost=(WCOST.server+WCOST.plan)*12,T=LAB&&LAB.holds,coin=(S.spot||"BTC/USD").split("/")[0];
+  const chip=(t,js,on)=>`<span class="chip${on?" on":""}" style="margin:0 6px 4px 0" onclick="${js};event.stopPropagation()">${t}</span>`,need=r=>cost/(r*share),rates=[.04,.07,.10];
+  setT("n-worth",cost?`needs about ${usd0(need(.07))} to cover ${usd0(cost)} a year`:"costs nothing extra on your Mac");
+  let H=`<p class="verd"><b>${cost?`Covering ${usd0(cost)} a year takes an account of about ${usd0(need(.07))}`:"On your own Mac it costs nothing extra to run"}</b>${cost?`, if the ${pctSel}% you hold grows 7% in a year.`:". The only hurdle is the fee to get in, about 0.5% of what you buy, paid once."}</p>`;
+  H+=`<p class="note" style="margin:0 0 4px">Where it runs</p><p style="margin:0 0 6px">${chip("your Mac, $0",`setCost('server',0)`,WCOST.server===0)}${chip("cloud server, $6 a month",`setCost('server',6)`,WCOST.server===6)}</p>`;
+  H+=`<p class="note" style="margin:0 0 4px">Count a Claude plan as a cost of this?</p><p style="margin:0 0 6px">${[[0,"no"],[20,"$20 a month"],[100,"$100"],[200,"$200"]].map(q=>chip(q[1],`setCost('plan',${q[0]})`,WCOST.plan===q[0])).join("")}</p>`;
+  H+=`<table class="htab"><tr><th>if it grows</th><th>to cover the cost</th><th>to cover it twice</th><th>your ${usd0(eq)} earns</th></tr>`+rates.map(r=>`<tr><td>${Math.round(r*100)}% in a year</td><td>${cost?usd0(need(r)):"any size"}</td><td>${cost?usd0(need(r)*2):"any size"}</td><td class="up">${usd(eq*share*r)}</td></tr>`).join("")+`</table>`;
+  if(T){const R=T.rows.find(r=>r.pct===pctSel)||T.rows[1],yrs=T.weeks/52,cagr=Math.pow(R.end/100,1/yrs)-1;H+=`<p class="note">For scale: over the last ${yrs.toFixed(1)} years, holding ${R.pct}% in ${coin} grew ${Math.round(cagr*100)}% a year on average, with a ${Math.round(-R.drawdown*100)}% fall on the way. That stretch began near a low, so do not count on it. A year can just as easily be negative, and then there is nothing to cover the cost with.</p>`}
+  H+=`<p class="note" style="margin-top:6px">So far with real money: ${S.mode==="live"&&S.total_pnl!=null?`<span class="${sign(S.total_pnl)}">${ud(S.total_pnl)}</span> since it started at ${usd(eq-S.total_pnl)}`:"not running on real money"}, ${usd(S.fees||0)} paid in fees. Only the share you hold can grow; cash in the account earns nothing here.</p>`;
+  setH("worth",H)}
+
 /* ================= hold the market =================
    No prediction. You choose a share of the account; the bot buys it once and then leaves it alone. The chart is what that
    would have done with $100 over the three years of real prices the bot keeps. */
@@ -1112,7 +1149,7 @@ function renderHold(){const h=S.hold||{},T=LAB&&LAB.holds,live=S.mode==="live",e
   let H=`<p class="verd"><b>${on?`Holding ${usd(h.value||0)} of ${coin}: ${share}% of the account, target ${h.pct}%.`:"Not holding anything."}</b> ${on?esc(h.note||""):"Choose a share and the bot buys it, then leaves it alone. It earns what the market does, up or down."}</p>`;
   H+=`<p class="note" style="margin:0 0 4px">Share of the account kept in ${coin}</p><p style="margin:0 0 6px">`+[25,50,75,100].map(p=>chip(p+"%",`holdPick(${p})`,HSEL.pct===p)).join("")+`</p>`;
   H+=`<p class="note" style="margin:0 0 4px">Buy it</p><p style="margin:0 0 6px">`+[[1,"all now"],[4,"in 4 weekly parts"],[8,"in 8 weekly parts"]].map(w=>chip(w[1],`holdPick(null,${w[0]})`,HSEL.weeks===w[0])).join("")+`</p>`;
-  if(T){H+=`<table class="htab"><tr><th>share held</th><th>$100 became</th><th>biggest fall on the way</th><th>worst week</th></tr>`+T.rows.map(r=>`<tr class="${r.pct===HSEL.pct?"sel":""}" onclick="holdPick(${r.pct})" data-tip="Holding ${r.pct}% for the last ${(T.weeks/52).toFixed(1)} years: $100 became ${usd(r.end)}. At its worst it was ${Math.round(-r.drawdown*100)}% below its own high. ${r.trades} trade${r.trades>1?"s":""}, ${usd(r.fees)} in fees."><td>${r.pct}%</td><td class="${sign(r.end-100)}">${usd(r.end)}</td><td class="down">-${Math.round(-r.drawdown*100)}%</td><td class="down">${(r.worst_week*100).toFixed(1)}%</td></tr>`).join("")+`</table>`}
+  if(T){H+=`<table class="htab"><tr><th>share</th><th>$100 became</th><th>biggest fall</th><th>worst week</th></tr>`+T.rows.map(r=>`<tr class="${r.pct===HSEL.pct?"sel":""}" onclick="holdPick(${r.pct})" data-tip="Holding ${r.pct}% for the last ${(T.weeks/52).toFixed(1)} years: $100 became ${usd(r.end)}. At its worst it was ${Math.round(-r.drawdown*100)}% below its own high. ${r.trades} trade${r.trades>1?"s":""}, ${usd(r.fees)} in fees."><td>${r.pct}%</td><td class="${sign(r.end-100)}">${usd(r.end)}</td><td class="down">-${Math.round(-r.drawdown*100)}%</td><td class="down">${(r.worst_week*100).toFixed(1)}%</td></tr>`).join("")+`</table>`}
   else H+=`<p class="note">The 3-year record appears once the price history has downloaded.</p>`;
   const amt=eq*HSEL.pct/100,first=amt/HSEL.weeks,conf=Date.now()-HCONF<8000,same=on&&h.pct===HSEL.pct&&(h.built||h.weeks===HSEL.weeks);
   H+=`<div class="btns">`+(same?"":`<button class="${conf?"go":""}" onclick="holdGo(${HSEL.pct})">${conf?`Yes: buy with real money`:on?`Change to ${HSEL.pct}%`:`Start: hold ${HSEL.pct}% (${HSEL.weeks>1?usd0(first)+" now, the rest weekly":"about "+usd0(amt)})`}</button>`)+(on?`<button onclick="holdGo(0)">Sell it and stop holding</button>`:"")+`</div>`;

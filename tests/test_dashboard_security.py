@@ -93,3 +93,24 @@ def test_menu_bar_item_is_mac_only_and_only_local(tmp_path):
     assert info["LSUIElement"] is True and info["NSAppTransportSecurity"] == {"NSAllowsLocalNetworking": True} == PLIST["NSAppTransportSecurity"]
     src = m.src.read_text()
     assert "http://127.0.0.1:" in src and "https://" not in src        # it talks to the bot on this computer and nothing else
+
+
+def test_research_brief_is_treated_as_untrusted_text(tmp_path):
+    import json
+    from penultimate.dashboard import Dash
+
+    class Eng:
+        data_dir = tmp_path
+    d = Dash(0)
+    d.engine = Eng()
+    assert d.research() == {"brief": None}                              # no file yet
+    (tmp_path / "research.json").write_text("not json")
+    assert d.research() == {"brief": None}
+    (tmp_path / "research.json").write_text(json.dumps({
+        "made": 1794300000, "headline": "H" * 999, "summary": "ok", "run_this": "rm -rf /", "assets": [
+            {"name": "Bitcoin", "now": "n", "changed": ["a", {"x": 1}, "b"], "case_for": "not a list", "evil": "<script>"}, "junk"],
+        "market": ["m"] * 50, "sources": [{"title": "t", "url": "https://example.com/a"}, {"title": "bad", "url": "javascript:alert(1)"}, "x"]}))
+    b = d.research()["brief"]
+    assert len(b["headline"]) == 220 and set(b) == {"made", "headline", "summary", "assets", "market", "ahead", "sources"}     # unknown fields are dropped
+    assert b["assets"] == [{"name": "Bitcoin", "now": "n", "changed": ["a", "b"], "case_for": [], "case_against": [], "would_change": []}]
+    assert len(b["market"]) == 8 and b["sources"] == [{"title": "t", "url": "https://example.com/a"}]    # only real web links survive

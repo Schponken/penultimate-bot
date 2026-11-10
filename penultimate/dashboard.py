@@ -103,6 +103,8 @@ class Dash:
                     return self._send(200, dash.state())
                 if self.path == "/api/forecast":
                     return self._send(200, dash.forecast())
+                if self.path == "/api/research":
+                    return self._send(200, dash.research())
                 if self.path == "/api/lab" or self.path.startswith("/api/lab?since="):
                     since = self.path.split("=", 1)[1] if "=" in self.path else "-1"
                     since = int(since) if since.lstrip("-").isdigit() else -1
@@ -142,6 +144,34 @@ class Dash:
         if self.lab and "flow" in snap:
             snap["flow"] = {**snap["flow"], "lab": self.lab.gen}
         return snap
+
+    def research(self) -> dict:
+        """The latest research brief (data/research.json, written twice a week by a scheduled Claude session).
+        It is treated as untrusted text: only known fields, plain strings cut to size, and http(s) links."""
+        eng = self.engine
+        try:
+            raw = json.loads((Path(eng.data_dir) / "research.json").read_text())
+        except (OSError, ValueError, AttributeError, TypeError):
+            return {"brief": None}
+        if not isinstance(raw, dict):
+            return {"brief": None}
+        txt = lambda v, n: str(v)[:n] if isinstance(v, (str, int, float)) else ""
+        lst = lambda v, k=8, n=420: [txt(x, n) for x in v if isinstance(x, (str, int, float))][:k] if isinstance(v, list) else []
+        assets = []
+        for a in (raw.get("assets") if isinstance(raw.get("assets"), list) else [])[:4]:
+            if isinstance(a, dict):
+                assets.append({"name": txt(a.get("name"), 60), "now": txt(a.get("now"), 300), "changed": lst(a.get("changed")),
+                               "case_for": lst(a.get("case_for")), "case_against": lst(a.get("case_against")), "would_change": lst(a.get("would_change"))})
+        sources = []
+        for s in (raw.get("sources") if isinstance(raw.get("sources"), list) else [])[:14]:
+            if isinstance(s, dict) and str(s.get("url", "")).startswith(("https://", "http://")):
+                sources.append({"title": txt(s.get("title"), 140), "url": txt(s.get("url"), 400)})
+        try:
+            made = float(raw.get("made") or 0)
+        except (TypeError, ValueError):
+            made = 0.0
+        return {"brief": {"made": made, "headline": txt(raw.get("headline"), 220), "summary": txt(raw.get("summary"), 1200), "assets": assets,
+                          "market": lst(raw.get("market")), "ahead": lst(raw.get("ahead")), "sources": sources}}
 
     def forecast(self) -> dict:
         eng = self.engine

@@ -22,7 +22,7 @@ from .store import Store
 from .strategies import REGISTRY
 
 FUNDING_PERIOD = 8 * 3600
-VERSION = "2.3"
+VERSION = "2.4"
 
 
 class Engine:
