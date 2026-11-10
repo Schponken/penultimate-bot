@@ -44,7 +44,14 @@ main{padding:12px 16px 40px;max-width:1500px;margin:0 auto}
   transition:transform .34s var(--ease),width .34s var(--ease),height .34s var(--ease),border-color .2s,box-shadow .2s,opacity .2s}
 .w:hover{border-color:#27364a}
 @keyframes enter{from{opacity:0}}.w{animation:enter .6s var(--ease) both}
-#heroX{flex:0 1 auto;min-height:0;overflow:auto}
+html{overflow-x:clip}
+main{transition:transform .6s cubic-bezier(.16,1,.3,1)}main.push{transform:scale(1.05)}
+#zveil{position:fixed;inset:0;z-index:45;background:rgba(2,3,6,.62);opacity:0;pointer-events:none;transition:opacity .4s}#zveil.on{opacity:1;pointer-events:auto}
+#zoom{position:fixed;z-index:50;display:none;background:linear-gradient(180deg,#111b28,#0a1018);border:1px solid #2f4259;border-radius:10px;padding:16px 18px 14px;box-shadow:0 34px 100px rgba(0,0,0,.8),0 0 0 1px rgba(53,200,255,.14),0 0 60px rgba(53,200,255,.08);max-height:calc(100vh - 76px);overflow:auto;will-change:transform,opacity}
+#zoom.on{display:block}#zT{font:600 15px var(--mono);margin:0 30px 10px 0}
+.zx{position:absolute;right:8px;top:8px;border:0;background:none;color:var(--dim);font-size:18px;line-height:1;padding:4px 9px}
+#zoom .kv{font-size:13px;animation:none;margin:0}#zoom .kv div{padding:7px 0}#zoom .kv p{font-size:13px;margin-top:12px;line-height:1.5}
+.zbig{font:500 15px/1.5 var(--sans);margin:0 0 10px}
 .w.drag,.w.rsz,.w.nt{transition:none}
 .w.drag{z-index:15;box-shadow:0 18px 50px rgba(0,0,0,.65),0 0 0 1px var(--cy);opacity:.93}
 .w.rsz{z-index:15;box-shadow:0 0 0 1px var(--cy)}
@@ -117,9 +124,6 @@ textarea{resize:vertical;min-height:60px;font:12px var(--mono);width:100%;paddin
 #dropAll small{display:block;margin-top:8px;font:400 13px var(--sans);color:var(--dim)}
 p{margin:6px 0}.note{color:var(--dim);font-size:12px}a{color:var(--cy)}
 .chip{display:inline-block;border:1px solid var(--cy);color:var(--cy);border-radius:10px;padding:0 7px;font:10.5px var(--mono);cursor:pointer;margin-left:6px}
-#gDetail{position:absolute;right:10px;top:4px;width:250px;max-height:calc(100% - 14px);overflow:auto;background:rgba(13,19,27,.95);border:1px solid #27364a;border-radius:5px;padding:8px 10px;display:none}
-#gDetail.on{display:block;animation:pop .2s var(--ease)}#gDetail h3{margin:0 0 4px;font:600 12px var(--mono);display:flex;justify-content:space-between}
-#gDetail h3 button{border:0;background:none;padding:0 4px;color:var(--dim)}
 #tip{position:fixed;z-index:60;pointer-events:none;background:rgba(13,19,27,.97);border:1px solid #2c3d52;border-radius:5px;padding:7px 9px;font:11.5px var(--mono);max-width:300px;display:none;box-shadow:0 10px 30px rgba(0,0,0,.6)}
 #tip b{display:block;margin-bottom:3px}#tip div{display:flex;justify-content:space-between;gap:14px}#tip div span:first-child{color:var(--dim)}#tip i{display:block;color:var(--dim);font-style:normal;margin-top:4px;font-family:var(--sans);font-size:11px}
 #toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:4px;font-weight:600;opacity:0;transition:opacity .2s;pointer-events:none;z-index:70}
@@ -143,9 +147,10 @@ p{margin:6px 0}.note{color:var(--dim);font-size:12px}a{color:var(--cy)}
   <div id="grid"><div id="ph"></div></div>
 </main>
 <div id="dropAll"><div>Drop your exchange key file anywhere<small>It is saved on this machine only and never shown on screen</small></div></div>
-<div id="veil"></div><div id="tip"></div><div id="toast"></div>
+<div id="veil"></div><div id="zveil"></div>
+<div id="zoom" role="dialog" aria-modal="true" aria-labelledby="zT"><button class="zx" onclick="closeZoom()" aria-label="Close">×</button><h3 id="zT"></h3><div id="zB"></div></div><div id="tip"></div><div id="toast"></div>
 <script>
-const TOKEN="__TOKEN__";let S={};let setupDrawn="";
+let TOKEN="__TOKEN__",VER=null;let S={};let setupDrawn="";
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const usd=(v,d=2)=>v==null?"–":(v<0?"-":"")+"$"+Math.abs(v).toLocaleString(undefined,{minimumFractionDigits:d,maximumFractionDigits:d});
@@ -155,7 +160,9 @@ const sign=v=>v==null?"dim":v>0?"up":v<0?"down":"dim";
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const p2=n=>String(n).padStart(2,"0");const clock=ts=>{const d=new Date(ts*1000);return p2(d.getMonth()+1)+"-"+p2(d.getDate())+" "+p2(d.getHours())+":"+p2(d.getMinutes())};
 function toast(m){const t=$("toast");t.textContent=m;t.style.opacity=1;setTimeout(()=>t.style.opacity=0,2600)}
-async function post(body){try{const r=await fetch("/api/cmd",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...body,token:TOKEN})});const j=await r.json();toast(j.message||(j.ok?"done":"failed"));return j.ok}catch(e){toast("could not reach the bot");return false}}
+async function post(body,again){try{const r=await fetch("/api/cmd",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...body,token:TOKEN})});
+  if(r.status===403&&!again){const m=(await (await fetch("/",{cache:"no-store"})).text()).match(/TOKEN="([A-Za-z0-9_-]{8,})"/);if(m){TOKEN=m[1];return post(body,true)}}   // the bot restarted since this tab loaded: pick up its new session and retry
+  const j=await r.json();toast(j.message||(j.ok?"done":"failed"));return j.ok}catch(e){toast("could not reach the bot");return false}}
 function stopAll(){if(confirm("Cancel all orders, close every position and halt?"))post({cmd:"stop_all"})}
 function goLive(){const c=prompt("This places real orders with real money, inside the limits in limits.yaml.\nType GO LIVE to confirm.");if(c)post({cmd:"mode",target:"live",confirm:c.trim()})}
 /* the key file goes straight from your disk to the bot on this machine; it is never shown on screen */
@@ -164,9 +171,9 @@ function keyFile(f){if(!f)return;if(f.size>20000){toast("that does not look like
 addEventListener("change",e=>{if(e.target.id==="kf")keyFile(e.target.files[0])});
 /* drop the key file anywhere on the page */
 const hasFiles=e=>e.dataTransfer&&[...(e.dataTransfer.types||[])].includes("Files");
-addEventListener("dragover",e=>{if(!hasFiles(e))return;e.preventDefault();$("dropAll").classList.add("on")});
-addEventListener("dragleave",e=>{if(!e.relatedTarget)$("dropAll").classList.remove("on")});
-addEventListener("drop",e=>{if(!hasFiles(e))return;e.preventDefault();$("dropAll").classList.remove("on");keyFile(e.dataTransfer.files[0])});
+let dropT=0;
+addEventListener("dragover",e=>{if(!hasFiles(e))return;e.preventDefault();e.dataTransfer.dropEffect="copy";$("dropAll").classList.add("on");clearTimeout(dropT);dropT=setTimeout(()=>$("dropAll").classList.remove("on"),220)});
+addEventListener("drop",e=>{if(!hasFiles(e))return;e.preventDefault();clearTimeout(dropT);$("dropAll").classList.remove("on");keyFile(e.dataTransfer.files[0])});
 function saveKeys(){post({cmd:"keys",apiKey:$("k1").value,secret:$("k2").value,password:""}).then(ok=>{if(ok){setupDrawn="";}})}
 const LS={get(k,d){try{const v=localStorage.getItem("pen."+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem("pen."+k,JSON.stringify(v))}catch(e){}}};
 function setH(id,html){const el=$(id);if(el&&el._h!==html){el._h=html;el.innerHTML=html}}
@@ -177,13 +184,13 @@ const C={bg:"#04060a",panel:"#090d13",line:"#17212d",ink:"#e9eff6",dim:"#6f7f93"
 /* ================= widgets: move, resize, fold, full screen ================= */
 const R=36,G=8,DEF={},EL={},grid=$("grid"),ph=$("ph"),veil=$("veil");
 const cwrap=id=>`<div class="cw"><canvas id="${id}"></canvas></div>`;
-[["acct","Account",0,0,5,7,3,4,`<div class="hero" data-x="k:acct" data-tip="Click for the full breakdown"><div><small>Account value</small><div class="big" id="kEq">–</div></div>
+[["acct","Account",0,0,5,7,3,4,`<div class="hero" data-x="k:acct" data-tip="Click to zoom into the full breakdown"><div><small>Account value</small><div class="big" id="kEq">–</div></div>
    <div class="stat"><small>Today</small><b id="kDay">–</b></div><div class="stat"><small>Since start</small><b id="kTot">–</b></div><div class="stat"><small>Fees paid</small><b id="kFee">–</b></div><div class="stat"><small>Funding</small><b id="kFun">–</b></div></div><div id="heroX"></div>${cwrap("cCurve")}`],
  ["price","Price",5,0,7,7,4,4,cwrap("cPrice")],
  ["lat","Probability lattice",0,7,4,7,3,5,`<div class="side">${cwrap("cLat")}<div class="nums" id="latStats"></div></div>`],
  ["ridge","Forecast ridge",4,7,5,7,3,5,cwrap("cRidge")],
  ["matrix","Odds matrix",9,7,3,7,3,4,`<div class="fill"><div id="matrix"></div><p class="note" id="modelLine"></p></div>`],
- ["graph","Signal graph",0,14,8,9,4,6,`${cwrap("cGraph")}<div id="gDetail"></div>`],
+ ["graph","Signal graph",0,14,8,9,4,6,cwrap("cGraph")],
  ["reg","Market state",8,14,4,9,3,5,`${cwrap("cReg")}<div class="mix" id="regMix"></div><div id="regime"></div>`],
  ["limits","Hard limits in use",0,23,4,7,3,4,`<div class="fill"><div id="limits"></div><div id="strats"></div></div>`],
  ["pos","Positions and orders",4,23,4,7,3,3,`<div class="fill" id="pos"></div>`],
@@ -215,11 +222,11 @@ function place(v,skip){const cwid=colW();let maxY=0;
 function save(){LS.set("layout",L);LS.set("opt",OPT)}
 function setMin(id,min,manual){const it=L[id];if(manual)it.mode=min?"min":"open";if(it.min===min)return;it.min=min;it.h=min?1:it.H+(it.g||0);arrange(Object.values(L));save();place(view())}
 /* a widget grows while something inside it is expanded, pushing its neighbours down, and shrinks back afterwards */
-const GROW={acct:()=>isX("k:acct")?5:0};
+const GROW={};
 function autoGrow(){if(BUSY)return;let ch=false;for(const id in GROW){const it=L[id],g=GROW[id]();if((it.g||0)!==g){it.g=g;if(!it.min)it.h=it.H+g;ch=true}}if(ch){arrange(Object.values(L));place(view())}}
 function ping(id){const el=EL[id];el.classList.remove("ping");void el.offsetWidth;el.classList.add("ping")}
 function flip(el,a){const b=el.getBoundingClientRect();if(RM||!el.animate||!b.width)return;const T=el.style.transform||"";
-  el.animate([{transformOrigin:"0 0",transform:`translate(${a.left-b.left}px,${a.top-b.top}px) ${T} scale(${a.width/b.width},${a.height/b.height})`},{transformOrigin:"0 0",transform:T||"none"}],{duration:300,easing:"cubic-bezier(.2,.8,.2,1)"})}
+  el.animate([{transformOrigin:"0 0",transform:`translate(${a.left-b.left}px,${a.top-b.top}px) ${T} scale(${a.width/b.width},${a.height/b.height})`},{transformOrigin:"0 0",transform:T||"none"}],{duration:520,easing:"cubic-bezier(.16,1,.3,1)"})}
 function maxi(id){const old=MAXED;
   if(old){const el=EL[old],a=el.getBoundingClientRect();el.classList.add("nt");el.classList.remove("max");MAXED=null;veil.classList.remove("on");place(view());flip(el,a);setTimeout(()=>el.classList.remove("nt"),30)}
   if(id&&id!==old){const el=EL[id],a=el.getBoundingClientRect();MAXED=id;el.classList.add("nt");el.style.transform=el.style.width=el.style.height="";el.classList.add("max");veil.classList.add("on");flip(el,a);setTimeout(()=>el.classList.remove("nt"),30)}
@@ -260,13 +267,13 @@ $("menu").onclick=e=>{const b=e.target.closest("button");if(!b)return;const m=b.
   if(m==="reset"){L=freshLayout();for(const k in NO)delete NO[k];LS.set("nodes",NO);OPT.hint=true}
   save();drawMenu();place(view());render()};
 addEventListener("click",()=>$("menu").classList.remove("on"));
-addEventListener("keydown",e=>{if(e.key==="Escape"){if(MAXED)maxi(null);else{SELP=null;HOURP=null;NODE=null;renderNode()}$("menu").classList.remove("on")}});
+addEventListener("keydown",e=>{if(e.key==="Escape"){if(ZOOM)closeZoom();else if(MAXED)maxi(null);else{SELP=null;HOURP=null}$("menu").classList.remove("on")}});
 
 /* ================= hover and click plumbing ================= */
 const tipEl=$("tip");let HV=null,CK=null,tipHTML="",MX=0,MY=0,RAFQ=false;
 let SELP=null,HOURP=null,NODE=null,MH=null,CUR={sel:null,hour:null},NEXT={sel:null,hour:null};
 const sel=()=>CUR.sel||SELP,hour=()=>CUR.hour!=null?CUR.hour:HOURP;
-const OPENX=new Set();const isX=k=>OPENX.has(k);
+let ZOOM=null,DET={};const isX=k=>!!ZOOM&&ZOOM.key===k;
 const trow=(k,v)=>`<div><span>${k}</span><span>${v}</span></div>`;
 const kv=(rows,text)=>`<div class="kv">${rows.map(r=>trow(r[0],r[1])).join("")}${text?`<p>${text}</p>`:""}</div>`;
 function showTip(html,text){if(tipEl._h!==html){tipEl._h=html;if(text)tipEl.textContent=html;else tipEl.innerHTML=html}
@@ -274,13 +281,39 @@ function showTip(html,text){if(tipEl._h!==html){tipEl._h=html;if(text)tipEl.text
   tipEl.style.left=clamp(MX+14,6,innerWidth-w-6)+"px";tipEl.style.top=(MY+16+h>innerHeight?MY-h-10:MY+16)+"px"}
 function kick(){if(RM&&!RAFQ){RAFQ=true;requestAnimationFrame(frame)}}
 addEventListener("pointermove",e=>{MX=e.clientX;MY=e.clientY;const c=e.target&&e.target.tagName==="CANVAS"&&e.target.id!=="bg"?e.target:null;
-  if(c){const r=c.getBoundingClientRect();HV={id:c.id,x:e.clientX-r.left,y:e.clientY-r.top}}else{HV=null;const d=e.target.closest&&e.target.closest("[data-tip]");showTip(BUSY?"":d?d.dataset.tip:MH&&MH.tip&&e.target.closest("#matrix")?MH.tip:"",true)}kick()});
+  if(c){const r=c.getBoundingClientRect(),k=r.width?c.clientWidth/r.width:1;HV={id:c.id,x:(e.clientX-r.left)*k,y:(e.clientY-r.top)*k}}else{HV=null;const d=e.target.closest&&e.target.closest("[data-tip]");showTip(BUSY?"":d?d.dataset.tip:MH&&MH.tip&&e.target.closest("#matrix")?MH.tip:"",true)}kick()});
 document.addEventListener("pointerleave",()=>{HV=null;showTip("")});
 addEventListener("scroll",()=>{HV=null;showTip("")},{passive:true});
-addEventListener("click",e=>{const t=e.target;if(t.tagName==="CANVAS"){const r=t.getBoundingClientRect();CK={id:t.id,x:e.clientX-r.left,y:e.clientY-r.top};kick();return}
-  if(t.closest("button,a,textarea,.wh"))return;const x=t.closest("[data-x]");if(x){const k=x.dataset.x;OPENX.has(k)?OPENX.delete(k):OPENX.add(k);render()}});
-const hov=id=>HV&&HV.id===id?HV:null;
+addEventListener("click",e=>{const t=e.target;if(t.tagName==="CANVAS"){const r=t.getBoundingClientRect(),k=r.width?t.clientWidth/r.width:1;CK={id:t.id,x:(e.clientX-r.left)*k,y:(e.clientY-r.top)*k,cx:e.clientX,cy:e.clientY};kick();return}
+  if(t.closest("button,a,textarea,.wh"))return;const x=t.closest("[data-x]");if(x)openZoom(x.dataset.x,x.getBoundingClientRect(),e.clientX,e.clientY)});
+const hov=id=>!ZOOM&&HV&&HV.id===id?HV:null;
 const take=id=>{if(CK&&CK.id===id){const c=CK;CK=null;return c}return null};
+/* click to expand: the detail grows out of the thing you clicked while the page pushes in toward it */
+const zoomEl=$("zoom"),zveil=$("zveil"),mainEl=document.querySelector("main");let zAnim=null;
+function zoomHTML(){const k=ZOOM.key;if(k.startsWith("n:")){const d=S.ready?nodeDetail(k.slice(2)):null;return d?[esc(d[0]),kv(d[1],d[2])]:null}const d=DET[k];return d?[d.t,d.f()]:null}
+function zoomRefresh(){if(!ZOOM)return;const h=zoomHTML();if(h){setH("zT",h[0]);setH("zB",h[1])}}
+function originRect(){if(!ZOOM)return null;const k=ZOOM.key,pushed=mainEl.classList.contains("push");let r=null;
+  if(pushed){mainEl.style.transition="none";mainEl.classList.remove("push");void mainEl.offsetWidth}
+  if(k.startsWith("n:")){const n=Gs.nodes[k.slice(2)],c=$("cGraph").getBoundingClientRect();if(n&&c.width)r={left:c.left+n.x-n.r,top:c.top+n.y-n.r,width:n.r*2,height:n.r*2}}
+  else{const el=document.querySelector('[data-x="'+CSS.escape(k)+'"]');if(el){const q=el.getBoundingClientRect();if(q.width&&q.bottom>0&&q.top<innerHeight)r={left:q.left,top:q.top,width:q.width,height:q.height}}}
+  if(pushed){mainEl.classList.add("push");void mainEl.offsetWidth;mainEl.style.transition=""}return r}
+function openZoom(key,a,cx,cy){if(ZOOM){const same=ZOOM.key===key;closeZoom();if(same)return}
+  ZOOM={key};NODE=key.startsWith("n:")?key.slice(2):null;const h=zoomHTML();if(!h){ZOOM=null;NODE=null;return}
+  showTip("");$("zT")._h=$("zB")._h=null;setH("zT",h[0]);setH("zB",h[1]);
+  const W=Math.min(innerWidth-24,clamp(a.width*1.08,400,620));zoomEl.style.width=W+"px";zoomEl.style.left=zoomEl.style.top="0px";zoomEl.classList.add("on");
+  const H=zoomEl.offsetHeight,left=clamp(a.left+a.width/2-W/2,12,Math.max(12,innerWidth-W-12)),top=clamp(a.top+a.height/2-H/2,64,Math.max(64,innerHeight-H-12));
+  zoomEl.style.left=left+"px";zoomEl.style.top=top+"px";zveil.classList.add("on");
+  if(!MAXED&&!RM){const m=mainEl.getBoundingClientRect();mainEl.style.transformOrigin=(cx-m.left)+"px "+(cy-m.top)+"px";mainEl.classList.add("push")}
+  if(!RM&&zoomEl.animate){if(zAnim)zAnim.cancel();const E="cubic-bezier(.16,1,.3,1)";
+    zAnim=zoomEl.animate([{transformOrigin:"0 0",transform:`translate(${a.left-left}px,${a.top-top}px) scale(${a.width/W},${a.height/H})`,opacity:.3,borderRadius:"2px"},{transformOrigin:"0 0",transform:"none",opacity:1,borderRadius:"10px"}],{duration:560,easing:E});
+    [...zoomEl.querySelectorAll("#zT,.zbig,.kv>div,.kv>p")].forEach((el,i)=>el.animate([{opacity:0,transform:"translateY(12px)"},{opacity:1,transform:"none"}],{duration:420,delay:140+i*30,easing:E,fill:"backwards"}))}
+  render()}
+function closeZoom(){if(!ZOOM)return;const a=originRect(),b=zoomEl.getBoundingClientRect();ZOOM=null;NODE=null;zveil.classList.remove("on");mainEl.classList.remove("push");
+  if(RM||!zoomEl.animate||!b.width){zoomEl.classList.remove("on");render();return}
+  if(zAnim)zAnim.cancel();
+  zAnim=zoomEl.animate([{transformOrigin:"0 0",transform:"none",opacity:1},a?{transformOrigin:"0 0",transform:`translate(${a.left-b.left}px,${a.top-b.top}px) scale(${a.width/b.width},${a.height/b.height})`,opacity:0}:{transformOrigin:"0 0",transform:`translate(${b.width*.03}px,${b.height*.03}px) scale(.94)`,opacity:0}],{duration:320,easing:"cubic-bezier(.4,0,.2,1)"});
+  zAnim.onfinish=()=>{if(!ZOOM)zoomEl.classList.remove("on")};render()}
+zveil.onclick=closeZoom;
 /* numbers that count to their new value and flash the direction */
 const NUM={};
 function num(id,v,fmt,cls){const el=$(id);if(!el)return;const n=NUM[id]||(NUM[id]={v:null});n.fmt=fmt;n.cls=cls||"";
@@ -297,12 +330,14 @@ const STRAT={deep_bids:"Rests buy orders well below the market to catch sudden d
   funding_carry:"Buys the coin and shorts the matching future to collect funding payments when they are rich. Switched off with real money for now."};
 const LIMX={day:"If today's loss reaches this cap the bot sells everything and halts until you press Resume.",gross:"The total value the bot may have working at once. This is its whole budget.",lev:"Exposure divided by account value. 1.00x means it never borrows."};
 let SEEN=null,lastFill=null,lastBad=null;
-function bar(key,label,val,max,fmt){const p=Math.min(100,max?val/max*100:0);return `<div class="lim x${isX(key)?" on":""}" data-x="${key}" data-tip="${fmt(val)} used of ${fmt(max)}. Click for what this limit does."><div class="row"><span>${label}</span><span class="dim">${fmt(val)} of ${fmt(max)}</span></div><div class="bar"><i class="${p>80?"hot":""}" style="width:${p}%"></i></div>${isX(key)?`<p class="note" style="margin:-4px 0 8px">${LIMX[key.slice(4)]}</p>`:""}</div>`}
-const xr=(key,cells,n,detail)=>`<tr class="x${isX(key)?" on":""}" data-x="${esc(key)}">${cells}</tr>`+(isX(key)?`<tr class="xd"><td colspan="${n}">${detail()}</td></tr>`:"");
+function bar(key,label,val,max,fmt){const p=Math.min(100,max?val/max*100:0);DET[key]={t:label,f:()=>kv([["in use now",fmt(val)],["hard cap",fmt(max)],["room left",fmt(Math.max(0,max-val))],["share of the cap used",Math.round(p)+"%"]],LIMX[key.slice(4)])};
+  return `<div class="lim x${isX(key)?" on":""}" data-x="${key}" data-tip="${fmt(val)} used of ${fmt(max)}. Click to zoom in."><div class="row"><span>${label}</span><span class="dim">${fmt(val)} of ${fmt(max)}</span></div><div class="bar"><i class="${p>80?"hot":""}" style="width:${p}%"></i></div></div>`}
+const XT={p:"Position",o:"Resting order",f:"Trade",s:"Forecaster",c:"Open call"};
+const xr=(key,cells,n,detail)=>{const m=cells.match(/<td[^>]*>(.*?)<\/td>/);DET[key]={t:(XT[key[0]]||"Detail")+" · "+(m?m[1].replace(/<[^>]+>/g,""):""),f:detail,html:1};return `<tr class="x${isX(key)?" on":""}" data-x="${esc(key)}">${cells}</tr>`};
 function render(){
   const s=S;if(!s.ready){$("status").textContent=s.crash?"restarting":"starting";$("status").className="pill warn";
     setH("banners",s.crash?`<div class="banner"><b>The engine hit an error and is restarting itself: ${esc(s.crash)}</b><button onclick="post({cmd:'mode',target:'practice'})">Go back to practice mode</button></div>`:"");return}
-  const live=s.mode==="live",price=s.price;
+  const live=s.mode==="live",price=s.price;DET={};
   $("mode").textContent=live?"LIVE · real money":(s.feed==="live"?"Practice · real prices":"Practice market");
   $("mode").className="pill "+(live?"live":"practice");
   const r=s.risk;let st=["running","ok"];
@@ -325,7 +360,7 @@ function render(){
   setT("n-acct",live?"real money on "+s.venue:"practice money");
   num("kEq",s.equity,v=>usd(v),"big");num("kDay",s.day_pnl,v=>usd(v),sign(s.day_pnl));num("kTot",s.total_pnl,v=>usd(v),sign(s.total_pnl));num("kFee",s.fees,v=>usd(v),"dim");num("kFun",s.funding,v=>usd(v),sign(s.funding));
   const inPos=(s.positions||[]).reduce((a,x)=>a+Math.abs(x.value),0);
-  setH("heroX",isX("k:acct")?kv([["cash",usd(s.cash)],["free to use now",usd(s.free_cash)],["in positions",usd(inPos)],["reserved for resting bids",usd(Math.max(0,s.cash-s.free_cash))],["budget cap",usd0(s.budget)],["locked-in profit or loss",usd(s.realized)],["fees paid",usd(s.fees)],["funding collected",usd(s.funding)]],live?"Real balances on your exchange account.":"Practice money: nothing real is at stake in this mode."):"");
+  DET["k:acct"]={t:"Account breakdown",html:1,f:()=>kv([["cash",usd(s.cash)],["free to use now",usd(s.free_cash)],["in positions",usd(inPos)],["reserved for resting bids",usd(Math.max(0,s.cash-s.free_cash))],["budget cap",usd0(s.budget)],["locked-in profit or loss",usd(s.realized)],["fees paid",usd(s.fees)],["funding collected",usd(s.funding)]],live?"Real balances on your exchange account.":"Practice money: nothing real is at stake in this mode.")};
   setT("t-price",s.spot+"  "+usd0(price));
   /* market state */
   const g=s.regime,mx=g.mix||{trend:0,chop:1,panic:0};
@@ -339,7 +374,7 @@ function render(){
   const Lm=s.limits;setT("n-limits",`exposure ${usd0(r.gross)} of ${usd0(Lm.max_gross_exposure_usd)}`);
   setH("limits",bar("lim:day","Today's loss",r.day_loss,Lm.max_daily_loss_usd,usd0)+bar("lim:gross","Total exposure",r.gross,Lm.max_gross_exposure_usd,usd0)+bar("lim:lev","Leverage",r.leverage,Lm.max_leverage,v=>v.toFixed(2)+"x")
     +`<p class="note">Biggest order ${usd0(Lm.max_order_usd)}, biggest position ${usd0(Lm.max_position_usd)}, orders refused so far ${r.rejections}</p>`);
-  setH("strats",(s.strategies||[]).map(x=>{const k="st:"+x.name;return `<div class="lim x${isX(k)?" on":""}" data-x="${esc(k)}"><p><b style="font-family:var(--mono)">${esc(x.name)}</b> <span class="note">${esc(x.note||"watching")}</span></p>${isX(k)?kv(Object.entries(x).filter(e=>!["name","note"].includes(e[0])).map(e=>[esc(e[0]),esc(e[1])]),STRAT[x.name]||""):""}</div>`}).join("")||'<p class="note">No strategies running.</p>');
+  setH("strats",(s.strategies||[]).map(x=>{const k="st:"+x.name;DET[k]={t:"Strategy · "+esc(x.name),html:1,f:()=>kv([["doing now",esc(x.note||"watching")]].concat(Object.entries(x).filter(e=>!["name","note"].includes(e[0])).map(e=>[esc(e[0]),esc(e[1])])),STRAT[x.name]||"")};return `<div class="lim x${isX(k)?" on":""}" data-x="${esc(k)}"><p><b style="font-family:var(--mono)">${esc(x.name)}</b> <span class="note">${esc(x.note||"watching")}</span></p></div>`}).join("")||'<p class="note">No strategies running.</p>');
   /* positions and orders */
   const ps=s.positions||[],od=s.orders||[];setT("n-pos",(ps.length?ps.length+" open":"flat")+" · "+od.length+" resting");
   let p="<table><tr><th>Position</th><th>Qty</th><th>Entry</th><th>Value</th></tr>"+(ps.length?ps.map(x=>xr("p:"+x.symbol,`<td>${esc(x.symbol)}</td><td>${x.qty.toFixed(5)}</td><td>${usd0(x.avg)}</td><td>${usd0(x.value)}</td>`,4,
@@ -349,7 +384,7 @@ function render(){
   setH("pos",p);
   /* events */
   const evs=s.events||[],keys=evs.map(e=>"e:"+e.ts+"|"+e.detail);
-  setH("events",evs.map((e,i)=>{const k=keys[i],on=isX(k);return `<div class="ev x${on?" on":""}${SEEN&&!SEEN.has(k)?" new":""}" data-x="${esc(k)}"><time>${clock(e.ts)}</time><span class="k ${esc(e.kind)}">${esc(e.kind)}</span><span class="d">${esc(e.detail)}</span></div>`+(on?`<div class="evx">${KIND[e.kind]||"Logged by the bot."} ${new Date(e.ts*1000).toLocaleString()}</div>`:"")}).join(""));
+  setH("events",evs.map((e,i)=>{const k=keys[i],on=isX(k);DET[k]={t:"Event · "+esc(e.kind),html:1,f:()=>`<p class="zbig">${esc(e.detail)}</p>`+kv([["logged",new Date(e.ts*1000).toLocaleString()],["kind",esc(e.kind)]],KIND[e.kind]||"Logged by the bot.")};return `<div class="ev x${on?" on":""}${SEEN&&!SEEN.has(k)?" new":""}" data-x="${esc(k)}"><time>${clock(e.ts)}</time><span class="k ${esc(e.kind)}">${esc(e.kind)}</span><span class="d">${esc(e.detail)}</span></div>`}).join(""));
   if(SEEN){const bad=evs.find((e,i)=>!SEEN.has(keys[i])&&["reaction","blocked","warning"].includes(e.kind));if(bad){ping("events");ping("limits")}}
   SEEN=new Set(keys);setT("n-events",evs[0]?evs[0].kind+": "+evs[0].detail:"");
   /* trades */
@@ -386,7 +421,7 @@ function render(){
       <button class="stop" onclick="goLive()">Go live with real money</button>
       ${s.mode==="paper"?`<button onclick="if(confirm('Wipe the practice account and start over?'))post({cmd:'reset_paper'})">Reset practice account</button>`:""}
     </div>`}
-  renderModelText();syncGraph();renderNode();autoGrow();autoFold();
+  renderModelText();syncGraph();autoGrow();autoFold();zoomRefresh();
 }
 function kronosRow(){const f=S.fc||{};if(!f.enabled)return"";const miss=(f.graded||0)-(f.hits||0);
   return xr("s:kronos",`<td class="cy">Kronos model (shadow)</td><td class="up">${f.hits||0}</td><td class="down">${miss}</td><td>–</td><td>${f.hit_rate==null?"new":f.hit_rate.toFixed(2)}</td>`,5,
@@ -445,7 +480,7 @@ let lastHr=null;function markHour(){const h=hour();if(h===lastHr)return;lastHr=h
 
 /* ================= canvases ================= */
 const MONO=getComputedStyle(document.body).getPropertyValue("--mono");
-function cv(id){const c=$(id),r=c.getBoundingClientRect(),d=window.devicePixelRatio||1;if(r.width<30||r.height<30)return null;const W=Math.round(r.width*d),H=Math.round(r.height*d);
+function cv(id){const c=$(id),r={width:c.clientWidth,height:c.clientHeight},d=window.devicePixelRatio||1;if(r.width<30||r.height<30)return null;const W=Math.round(r.width*d),H=Math.round(r.height*d);
   if(c.width!==W||c.height!==H){c.width=W;c.height=H}const g=c.getContext("2d");g.setTransform(d,0,0,d,0,0);g.clearRect(0,0,r.width,r.height);return [g,r.width,r.height]}
 function label(g,t,x,y,col,align,size){g.font=(size||10)+"px "+MONO;g.fillStyle=col||C.dim;g.textAlign=align||"left";g.fillText(t,x,y)}
 function emptyMsg(g,w,h,t){label(g,t,w/2,h/2,C.dim,"center",11)}
@@ -614,17 +649,17 @@ function nodeDetail(id){const s=S,r=s.risk,fc=s.fc||{},Lm=s.limits,g=s.regime,mx
   if(id.startsWith("s:")){const x=(s.strategies||[]).find(v=>"s:"+v.name===id);if(!x)return null;return [x.name,[["doing now",esc(x.note||"watching")]].concat(Object.entries(x).filter(e=>!["name","note"].includes(e[0])).map(e=>[esc(e[0]),esc(e[1])])),STRAT[x.name]||""]}
   if(id.startsWith("o:")){const o=(s.orders||[])[+id.slice(2)];if(!o)return null;const tp=touchProb(o.price);return ["Resting "+o.side+" order",[["price",usd(o.price)],["value",usd(o.qty*o.price)],["from price now",pct(o.price/s.price-1,2)],["placed by",esc(o.strategy)+" "+esc(o.tag)]].concat(tp!=null&&o.side==="buy"?[["model paths that reach it",Math.round(tp*100)+"%"]]:[]),"Waits on the exchange's book and fills only if the market trades to this price."]}
   return null}
-function renderNode(){const el=$("gDetail"),d=NODE&&S.ready?nodeDetail(NODE):null;el.classList.toggle("on",!!d);if(d)setH("gDetail",`<h3>${esc(d[0])}<button onclick="NODE=null;renderNode()" aria-label="Close">×</button></h3>`+kv(d[1],d[2]))}
+function renderNode(){}
 function nodeAt(x,y){let best=null,bd=1e9;for(const k in Gs.nodes){const n=Gs.nodes[k],dd=Math.hypot(n.x-x,n.y-y);if(dd<n.r+10&&dd<bd){bd=dd;best=n}}return best}
 (()=>{const c=$("cGraph");let dr=null;
   c.addEventListener("pointerdown",e=>{const r=c.getBoundingClientRect(),n=nodeAt(e.clientX-r.left,e.clientY-r.top);if(!n)return;dr={n,sx:e.clientX,sy:e.clientY,moved:false};c.setPointerCapture(e.pointerId)});
-  c.addEventListener("pointermove",e=>{if(!dr)return;if(!dr.moved&&Math.hypot(e.clientX-dr.sx,e.clientY-dr.sy)<4)return;dr.moved=true;const r=c.getBoundingClientRect(),ax=clamp((e.clientX-r.left)/(NODE&&r.width>640?r.width-266:r.width),.03,.97),ay=clamp((e.clientY-r.top-14)/(r.height-80),0,1);
+  c.addEventListener("pointermove",e=>{if(!dr)return;if(!dr.moved&&Math.hypot(e.clientX-dr.sx,e.clientY-dr.sy)<4)return;dr.moved=true;const r=c.getBoundingClientRect(),ax=clamp((e.clientX-r.left)/r.width,.03,.97),ay=clamp((e.clientY-r.top-14)/(r.height-80),0,1);
     NO[dr.n.id]=[ax-dr.n.bx,ay-dr.n.by];dr.n.ax=ax;dr.n.ay=ay});
   const end=()=>{if(dr&&dr.moved){LS.set("nodes",NO);gSkip=true;setTimeout(()=>gSkip=false,50)}dr=null};c.addEventListener("pointerup",end);c.addEventListener("pointercancel",end)})();
 function drawGraph(t,dt){const c0=cv("cGraph");if(!c0)return;const [g,w,h]=c0;if(!S.ready)return;const N=Gs.nodes,hv=hov("cGraph"),ck=take("cGraph");
-  const gw=NODE&&w>640?w-266:w;for(const k in N){const n=N[k],wob=RM?0:1;n.x=n.ax*gw+Math.sin(t*.5+n.ph)*5*wob;n.y=14+n.ay*(h-80)+Math.cos(t*.4+n.ph*1.7)*4*wob;n.flash*=.95}
+  const gw=w;for(const k in N){const n=N[k],wob=RM?0:1;n.x=n.ax*gw+Math.sin(t*.5+n.ph)*5*wob;n.y=14+n.ay*(h-80)+Math.cos(t*.4+n.ph*1.7)*4*wob;n.flash*=.95}
   const hn=hv?nodeAt(hv.x,hv.y):null,focus=hn?hn.id:NODE;$("cGraph").style.cursor=hn?"pointer":"crosshair";
-  if(ck&&!gSkip){const n=nodeAt(ck.x,ck.y);NODE=n&&NODE!==n.id?n.id:null;renderNode()}
+  if(ck&&!gSkip){const n=nodeAt(ck.x,ck.y);if(n){const r=$("cGraph").getBoundingClientRect();openZoom("n:"+n.id,{left:r.left+n.x-n.r,top:r.top+n.y-n.r,width:n.r*2,height:n.r*2},ck.cx,ck.cy)}}
   Gs.edges.forEach(([a,b,dash])=>{const A=N[a],B=N[b];if(!A||!B)return;const on=focus&&(a===focus||b===focus);g.strokeStyle=on?"rgba(53,200,255,.85)":focus?"rgba(111,127,147,.14)":"rgba(111,127,147,.28)";g.lineWidth=on?1.6:1;g.setLineDash(dash?[3,5]:[]);g.beginPath();g.moveTo(A.x,A.y);g.lineTo(B.x,B.y);g.stroke();
     if(!RM&&Math.random()<dt*(a==="feed"?.9:.35)*(on?3:1))emit(a,b,on?C.cy:"rgba(159,176,195,.7)",1,.35)});
   g.setLineDash([]);g.lineWidth=1;
@@ -640,15 +675,17 @@ function drawGraph(t,dt){const c0=cv("cGraph");if(!c0)return;const [g,w,h]=c0;if
     if(n.hub){const pr=RM?0:(t*.7)%1;g.beginPath();g.arc(n.x,n.y,n.r+4+pr*14,0,7);g.strokeStyle=n.col;g.globalAlpha=.5*(1-pr);g.stroke();g.globalAlpha=1;g.beginPath();g.arc(n.x,n.y,4,0,7);g.fillStyle=n.col;g.fill()}
     else{g.beginPath();g.arc(n.x,n.y,Math.max(1.5,n.r*.35),0,7);g.fillStyle=n.col;g.fill()}
     if(n.sm){if(gw>560)label(g,n.label,n.x-8,n.y+3,on?C.ink:C.dim,"right",9.5)}else{const o=n.off||0,half=n.label.length*3.3,lx=n.right?Math.min(n.x+n.r,gw-2):clamp(n.x,half+2,gw-half-2),al=n.right?"right":"center";label(g,n.label,lx,n.y+n.r+13+o,C.ink,al,10.5);if(n.sub)label(g,n.sub,lx,n.y+n.r+25+o,n.col,al,9.5)}}
-  if(hn){const d=nodeDetail(hn.id);if(d)tipHTML=`<b>${esc(d[0])}</b>`+d[1].slice(0,4).map(r=>trow(r[0],r[1])).join("")+`<i>Click for more. Drag to move it.</i>`}}
+  if(hn){const d=nodeDetail(hn.id);if(d)tipHTML=`<b>${esc(d[0])}</b>`+d[1].slice(0,4).map(r=>trow(r[0],r[1])).join("")+`<i>Click to zoom in. Drag to move it.</i>`}}
 
 /* ================= loop ================= */
 let lastT=0;
 function frame(ms){const t=ms/1000,dt=Math.min(.1,Math.max(0,t-lastT));lastT=t;RAFQ=false;CUR=NEXT;NEXT={sel:MH?MH.sel:null,hour:MH?MH.hour:null};tipHTML="";
   if(S.ready&&!document.hidden){try{tweens(ms);drawBg(t,dt);drawCurve(t);drawReg(t);drawLat(t);drawRidge(t);drawPrice(t);drawGraph(t,dt);markHour()}catch(e){console.error(e)}}
-  CK=null;if(HV&&!BUSY)showTip(tipHTML);
+  CK=null;if(HV&&!BUSY)showTip(ZOOM?"":tipHTML);
   if(!RM)requestAnimationFrame(frame)}
-async function tick(){try{S=await (await fetch("/api/state")).json();render();
+async function tick(){try{S=await (await fetch("/api/state")).json();
+    if(S.ready){if(!VER)VER=S.version;else if(S.version!==VER&&!BUSY&&!ZOOM&&![...document.querySelectorAll("textarea")].some(t=>t.value)){location.reload();return}}   // an updated bot: load its new dashboard
+    render();
     if(S.ready){const k=(S.fc&&S.fc.made)+"|"+(S.fc&&S.fc.fresh)+"|"+S.feed;if(k!==fcKey||Date.now()-lastFetch>60000){fcKey=k;loadForecast()}kick()}
   }catch(e){if(!(e instanceof TypeError&&/fetch|network|load/i.test(e.message)))console.error(e);$("status").textContent="offline";$("status").className="pill bad"}}
 drawMenu();place(view());tick();setInterval(tick,1000);if(!RM)requestAnimationFrame(frame);
