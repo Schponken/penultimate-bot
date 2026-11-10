@@ -39,6 +39,7 @@ class Engine:
         self.taker_fee = float(cfg["paper"]["taker_fee"])
         self.perp_taker_fee = float(cfg["paper"].get("perp_taker_fee", self.taker_fee))
         self.risk = RiskEngine(limits)
+        self.flow = {"evals": 0, "placed": 0, "refused": 0, "fills": 0, "reactions": 0, "score_checks": 0}   # real event counts, drawn on the dashboard
         self.risk.load_state(self.store.get("risk", {}))
         self.regime = Regime(**cfg.get("regime", {}))
         self.problems: List[str] = []       # anything that blocks trading, shown on the dashboard
@@ -140,6 +141,8 @@ class Engine:
     def event(self, kind: str, detail: str, ts: Optional[float] = None) -> None:
         ts = ts if ts is not None else (self.feed.now() if hasattr(self, "feed") else time.time())
         self.events.appendleft({"ts": ts, "kind": kind, "detail": detail})
+        if kind == "reaction":
+            self.flow["reactions"] += 1
         self.store.event(ts, kind, detail)
 
     def size_mult(self, use_regime: bool = True) -> float:
@@ -163,9 +166,10 @@ class Engine:
         tick = self.ticks.get(order.symbol)
         if tick is None:
             return False, "no price yet"
-        before = self.risk.rejections
-        ok, why = self.risk.check(order, tick, self.broker, self.marks)
-        self.risk.rejections = before
+        r = self.risk                       # a question, not an order: leave the counters as they were
+        before = (r.rejections, r.checks, r.passed, dict(r.by_rule), dict(r.last))
+        ok, why = r.check(order, tick, self.broker, self.marks)
+        r.rejections, r.checks, r.passed, r.by_rule, r.last = before
         return ok, why
 
     # ---- the only door orders go through -----------------------------------
@@ -179,6 +183,7 @@ class Engine:
             if 0 < order.qty - held < 1e-9 * max(1.0, order.qty):   # not a rounding crumb more
                 order.qty = held
         ok, why = self.risk.check(order, tick, self.broker, self.marks)
+        self.flow["placed" if ok else "refused"] += 1
         if not ok:
             order.status, order.reason = "rejected", why
         else:
@@ -194,6 +199,7 @@ class Engine:
         return order
 
     def _handle_fills(self, fills: List[Fill]) -> None:
+        self.flow["fills"] += len(fills)
         for f in fills:
             self.store.fill(f, self.mode)
             self.fills.appendleft({"ts": f.ts, "symbol": f.symbol, "side": f.side, "qty": f.qty,
@@ -337,6 +343,7 @@ class Engine:
                     for t in batch:
                         for s in self.strategies:
                             s.on_tick(t)
+                            self.flow["evals"] += 1
                 if self.n % 5 == 0:
                     self.curve.append((now, round(self.broker.equity(self.marks), 2)))
                     m = self.regime.mix
@@ -347,6 +354,7 @@ class Engine:
                     self.save_state()
                 if self.feed.live and not self.problems and now - self._last_score > 60:
                     self._last_score = now
+                    self.flow["score_checks"] += 1
                     for line in self.score.on_price(self.marks[self.spot], now):
                         self.event("scorekeeper", line, now)
             if self.hub and self.spot in self.marks and time.time() - self._last_hub > 5:
@@ -392,6 +400,21 @@ class Engine:
                                  "score_tilt": self._tilt, "score_live": bool(self.feed.live)}
         return self._score_cache
 
+    def _inner(self, now: float) -> dict:
+        """The working parts behind each box on the dashboard's signal graph, with their live values."""
+        t = self.ticks.get(self.spot)
+        g = self.regime
+        return {
+            "feed": {"bid": t.bid if t else None, "ask": t.ask if t else None, "last": t.last if t else None,
+                     "spread_bps": t.spread_bps if t else None,
+                     "age": max(0.0, now - self.last_seen[self.spot]) if self.spot in self.last_seen else None},
+            "regime": {"n": len(g.rets), "window": g.window, "recent_vol": getattr(g, "recent_vol", 0.0), "panic_vol": g.panic_vol,
+                       "trend_z": g.trend_z, "cand": g._cand, "count": g._count, "need": 45 if g.state == "panic" else 90},
+            "risk": {"checks": self.risk.checks, "passed": self.risk.passed, "by_rule": dict(self.risk.by_rule),
+                     "last": dict(self.risk.last)},
+            "tilt": self._tilt,
+        }
+
     # ---- what the dashboard sees -------------------------------------------
     def _snapshot(self, now: float) -> None:
         b, L = self.broker, self.limits
@@ -427,6 +450,9 @@ class Engine:
             "problems": self.problems, "blocked": self.blocked,
             "fc": self.hub.view(self.marks.get(self.spot), now) if self.hub else {"enabled": False, "state": "off"},
             "version": VERSION,
+            "flow": {**self.flow, "ticks": self.n, "checks": self.risk.checks, "passed": self.risk.passed,
+                     "candles": getattr(self.hub, "fetches", 0), "forecasts": getattr(self.hub, "reads", 0)},
+            "inner": self._inner(now),
         }
         with self.lock:
             self.snap = snap

@@ -161,8 +161,15 @@ class DeepBids(Strategy):
         self.anchor, self.anchor_ts = s.get("anchor"), s.get("anchor_ts", 0.0)
 
     def view(self) -> dict:
+        mid = self.eng.marks.get(self.eng.spot)
         return {"name": self.name, "note": self.note, "lots": len(self.lots),
-                "wins": self.wins, "losses": self.losses}
+                "wins": self.wins, "losses": self.losses,
+                "inner": {"anchor": self.anchor, "drift": (mid / self.anchor - 1) if (mid and self.anchor) else None,
+                          "levels": list(self.p["levels"]), "recenter": self.p["recenter"], "take_profit": self.p["take_profit"],
+                          "stop_loss": self.p["stop_loss"], "max_hold_hours": self.p["max_hold_hours"],
+                          "settle_hours": self.p.get("settle_hours", 6), "order_usd": self.p["order_usd"],
+                          "resting": len(self._ladder()),
+                          "held": [{"entry": l["entry"], "stop": l.get("stop"), "qty": l["qty"]} for l in self.lots.values()]}}
 
 
 class FundingCarry(Strategy):
@@ -244,7 +251,9 @@ class FundingCarry(Strategy):
 
     def view(self) -> dict:
         return {"name": self.name, "note": self.note, "open": self.qty > 0,
-                "opened": self.opened, "skipped": self.skipped}
+                "opened": self.opened, "skipped": self.skipped,
+                "inner": {"enter_rate": self.p.get("enter_rate"), "exit_rate": self.p.get("exit_rate"),
+                          "max_breakeven_periods": self.p.get("max_breakeven_periods"), "notional_usd": self.p.get("notional_usd")}}
 
 
 REGISTRY = {"deep_bids": DeepBids, "funding_carry": FundingCarry}

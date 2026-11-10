@@ -36,6 +36,7 @@ class Regime:
         recent = list(self.rets)[-10:]
         self.flash = sum(recent)
         recent_vol = math.sqrt(sum(r * r for r in recent) / len(recent))
+        self.recent_vol = recent_vol
         squash = lambda x: 1 / (1 + math.exp(-4 * (x - 1)))        # 0.5 exactly at the switching threshold
         panic = max(squash(recent_vol / self.panic_vol), squash(-self.flash / 0.03))
         trend = (1 - panic) * squash(abs(self.trend) / self.trend_z)

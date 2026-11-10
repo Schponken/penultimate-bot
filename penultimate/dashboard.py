@@ -3,6 +3,7 @@ Binds to this computer only unless a password is set."""
 from __future__ import annotations
 
 import base64
+import ipaddress
 import json
 import re
 import secrets
@@ -14,6 +15,25 @@ from .config import ROOT
 
 PAGE = (Path(__file__).parent / "dashboard.html").read_text()
 LOCAL = ("127.0.0.1", "::1", "localhost")
+NAMES = ("localhost", "penultimate")        # names this dashboard answers to (plus plain IP addresses and Tailscale names)
+
+
+def host_ok(header: str, extra=()) -> bool:
+    """Refuse requests addressed to any other website name. That is how a hostile web page tries to reach
+    a program on this computer (it points its own domain name at 127.0.0.1); a bare IP address cannot be
+    used that way, and *.ts.net names are issued only by Tailscale."""
+    host = (header or "").strip().lower()
+    if host.startswith("["):
+        host = host[1:].split("]")[0]
+    elif host.count(":") == 1:
+        host = host.rsplit(":", 1)[0]
+    if not host:
+        return False
+    try:
+        ipaddress.ip_address(host)
+        return True
+    except ValueError:
+        return host in NAMES or host.endswith(".ts.net") or host in extra
 
 
 def set_mode(mode: str, feed: str, path: Path = ROOT / "config.yaml") -> None:
@@ -24,10 +44,11 @@ def set_mode(mode: str, feed: str, path: Path = ROOT / "config.yaml") -> None:
 
 
 class Dash:
-    def __init__(self, port: int = 8787, host: str = "127.0.0.1", password: str = ""):
+    def __init__(self, port: int = 8787, host: str = "127.0.0.1", password: str = "", hosts=()):
         if host not in LOCAL and not password:
             host = "127.0.0.1"          # never expose controls to a network without a password
         self.host, self.port, self.password = host, port, password
+        self.hosts = tuple(str(h).lower() for h in hosts)      # extra names from config.yaml (dashboard: hosts: [...])
         self.token = secrets.token_urlsafe(16)
         self.engine = None
         self.updater = None
@@ -43,6 +64,13 @@ class Dash:
                 pass
 
             def _auth(self) -> bool:
+                if not host_ok(self.headers.get("Host", ""), dash.hosts):
+                    self._send(403, {"error": "open this dashboard at http://127.0.0.1:%d/" % dash.port})
+                    return False
+                origin = self.headers.get("Origin")
+                if self.command == "POST" and origin and origin.split("://", 1)[-1].lower() != self.headers.get("Host", "").lower():
+                    self._send(403, {"error": "request came from another site"})
+                    return False
                 if not dash.password:
                     return True
                 want = "Basic " + base64.b64encode(f"owner:{dash.password}".encode()).decode()
@@ -59,6 +87,10 @@ class Dash:
                 self.send_header("Content-Type", ctype + "; charset=utf-8")
                 self.send_header("Content-Length", str(len(data)))
                 self.send_header("Cache-Control", "no-store")
+                self.send_header("X-Frame-Options", "DENY")                     # no other page may embed this one
+                self.send_header("Content-Security-Policy", "frame-ancestors 'none'")
+                self.send_header("X-Content-Type-Options", "nosniff")
+                self.send_header("Referrer-Policy", "no-referrer")
                 self.end_headers()
                 self.wfile.write(data)
 
@@ -105,6 +137,8 @@ class Dash:
         snap["keys_saved"] = KEYS_FILE.exists()
         snap["crash"] = self.crash
         snap["update"] = self.updater.view() if self.updater else {"enabled": False}
+        if self.lab and "flow" in snap:
+            snap["flow"] = {**snap["flow"], "lab": self.lab.gen}
         return snap
 
     def forecast(self) -> dict:

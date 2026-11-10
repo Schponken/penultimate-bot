@@ -40,6 +40,7 @@ class ForecastHub:
         self.candles: List[list] = []           # recent hourly candles for the price chart
         self.history: List[list] = []           # all hourly candles held, for the strategy lab
         self.candle_error = ""
+        self.fetches, self.reads = 0, 0      # candle refreshes and forecasts read, for the dashboard
         self._mtime = 0.0
         self._proc: Optional[subprocess.Popen] = None
         self._setup: Optional[subprocess.Popen] = None
@@ -84,6 +85,7 @@ class ForecastHub:
                                                      "candles": candles, "written": time.time()})
                         self.candles = [c[:5] for c in candles[-96:]]
                         self.history = candles
+                        self.fetches += 1
                         closes = [c[4] for c in candles[-49:]]
                         self.observed = [round(b / a - 1, 5) for a, b in zip(closes, closes[1:])]
                 except Exception as e:
@@ -161,6 +163,7 @@ class ForecastHub:
                 f = json.loads(path.read_text())
                 if f.get("symbol") == self.symbol and f.get("closes"):
                     self.forecast = f
+                    self.reads += 1
                     if self.is_fresh(price, now):
                         for hours in (1, f["horizon"]):
                             p_up = sum(p[hours - 1] > f["last_close"] for p in f["closes"]) / len(f["closes"])
@@ -201,7 +204,7 @@ class ForecastHub:
     def view(self, price: Optional[float], now: float) -> dict:
         f, fresh = self.forecast, self.is_fresh(price, now)
         v = {"enabled": self.enabled, "state": self.state, "detail": self.detail, "model": self.model,
-             "fresh": fresh, "made": f["made"] if f else None, **self._stats,
+             "fresh": fresh, "made": f["made"] if f else None, **self._stats, "history": len(self.history),
              "hit_rate": self._stats["hits"] / self._stats["graded"] if self._stats["graded"] else None}
         if fresh:
             n = len(f["closes"])

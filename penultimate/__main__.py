@@ -27,7 +27,7 @@ def main() -> None:
     dash = None
     if not args.no_dashboard:
         d = load_config().get("dashboard", {})
-        dash = Dash(int(d.get("port", 8787)), d.get("host", "127.0.0.1"), str(d.get("password", "") or ""))
+        dash = Dash(int(d.get("port", 8787)), d.get("host", "127.0.0.1"), str(d.get("password", "") or ""), d.get("hosts") or ())
         dash.start()
         url = f"http://127.0.0.1:{dash.port}/"
         print(f"Penultimate dashboard: {url}")
