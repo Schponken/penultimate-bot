@@ -78,3 +78,18 @@ def test_the_updater_only_accepts_a_plain_repository_name(tmp_path):
     assert Updater({"update": {"repo": "Owner/repo"}}, tmp_path, tmp_path).enabled
     for bad in ("Owner/repo/../../x", "https://evil.example/x", "Owner repo", "a/b?c=d"):
         assert not Updater({"update": {"repo": bad}}, tmp_path, tmp_path).enabled
+
+
+def test_menu_bar_item_is_mac_only_and_only_local(tmp_path):
+    import plistlib
+    from pathlib import Path
+    from penultimate.menubar import MenuBar, PLIST
+    root = Path(__file__).resolve().parents[1]
+    m = MenuBar(root, tmp_path, 8787)
+    assert m.src.exists() and m.enabled is False                       # this test machine is not a Mac: it does nothing
+    m.start()
+    m.write_bundle()
+    info = plistlib.loads((tmp_path / "PenultimateBar.app" / "Contents" / "Info.plist").read_bytes())
+    assert info["LSUIElement"] is True and info["NSAppTransportSecurity"] == {"NSAllowsLocalNetworking": True} == PLIST["NSAppTransportSecurity"]
+    src = m.src.read_text()
+    assert "http://127.0.0.1:" in src and "https://" not in src        # it talks to the bot on this computer and nothing else

@@ -40,6 +40,9 @@ def main() -> None:
     upd = Updater(load_config(), ROOT, ROOT / "data")      # off unless config.yaml has an update section
     upd.start()
     if dash:
+        from .menubar import MenuBar
+        MenuBar(ROOT, ROOT / "data", dash.port).start()     # Mac only: the account value in the menu bar, the dashboard one click below it
+    if dash:
         dash.updater = upd
     while True:
         eng = None
