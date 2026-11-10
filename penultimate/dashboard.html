@@ -17,8 +17,8 @@ h1{font:600 15px var(--mono);margin:0;letter-spacing:.04em}
 .pill{font:600 10.5px var(--mono);padding:3px 8px;border-radius:3px;border:1px solid var(--line);letter-spacing:.06em;text-transform:uppercase;color:var(--dim)}
 .pill.practice{color:var(--warn);border-color:var(--warn)}.pill.live{color:#fff;background:var(--down);border-color:var(--down)}
 .pill.ok{color:var(--up);border-color:var(--up)}.pill.warn{color:var(--warn);border-color:var(--warn)}.pill.bad{color:var(--down);border-color:var(--down)}
-.pill.ok::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--up);margin-right:6px;animation:beat 1.6s infinite}
-@keyframes beat{0%,100%{opacity:1}50%{opacity:.25}}
+.pill.ok::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--up);margin-right:6px}.pill.ok.tk::before{animation:beat .7s}
+@keyframes beat{0%{opacity:.35;box-shadow:0 0 0 0 var(--up)}70%{box-shadow:0 0 0 7px rgba(0,230,118,0)}100%{opacity:1;box-shadow:0 0 0 0 rgba(0,230,118,0)}}
 #tele{font:11px var(--mono);color:var(--dim)}
 .spacer{flex:1}
 button{font-size:12.5px;font-weight:600;font-family:var(--sans);border-radius:4px;border:1px solid var(--line);background:var(--panel2);color:var(--ink);padding:7px 11px;cursor:pointer;transition:border-color .15s,transform .1s,background .15s}
@@ -144,7 +144,7 @@ p{margin:6px 0}.note{color:var(--dim);font-size:12px}a{color:var(--cy)}
 <header>
   <h1>PENULTIMATE</h1>
   <span id="mode" class="pill" data-tip="Practice: fake money. Live: real orders on your exchange account. Change it in Setup or with Go live.">starting</span>
-  <span id="status" class="pill" data-tip="Running: trading normally. Paused: a short cooldown after a safety reaction. Halted: stopped until you press Resume. Blocked: something needs fixing first.">…</span>
+  <span id="status" class="pill" data-tip="Running: trading normally. Paused: a short cooldown after a safety reaction. Halted: stopped until you press Resume. Blocked: something needs fixing first. The dot beats once for every real price update the bot reads.">…</span>
   <span id="tele"></span>
   <span class="spacer"></span>
   <span id="menuWrap"><button id="menuBtn" aria-haspopup="true" aria-expanded="false">Layout ▾</button>
@@ -193,7 +193,8 @@ const C={bg:"#04060a",panel:"#090d13",line:"#17212d",ink:"#e9eff6",dim:"#6f7f93"
 
 /* ================= widgets: move, resize, fold, full screen ================= */
 const R=36,G=8,DEF={},EL={},grid=$("grid"),ph=$("ph"),veil=$("veil");
-const WT={acct:"Your account value over time. Green area: above where it started. Red: below.",price:"Left of NOW: what the price really did, one bar per hour. Right of NOW: 48 possible next 24 hours imagined by the forecast model (shadow only).",
+const WT={acct:"Your account value over time. Green area: above where it started. Red: below.",price:"Left of NOW: what the price really did, one bar per hour. Right of NOW: 48 possible next 24 hours imagined by the forecast model (shadow only); the bright ones still match the real price. Triangles: the bot's own trades. Bottom strip: every live price reading.",
+  land:"Test only. A 3D map of everything the lab has tried. Floor: two settings. Height: the average result on history the lab never trained on. The blue sheet is breakeven. Drag to turn it.",
   lat:"Each ball is one of the model's 48 imagined outcomes for the next 24 hours, dropped into a bin by how much the price ends up or down.",ridge:"Where the model thinks the price may sit, hour by hour. The front row is the next hour, the back row is 24 hours out.",
   matrix:"Odds table. Each cell is the percentage of the model's futures that are at or beyond that move, that many hours from now.",graph:"How the bot works, live. Every moving dot is one real event. Click a box to go inside it.",
   reg:"How the bot reads the market right now: trending, choppy or panicking. This sets how big it is allowed to trade.",lab:"Test only. 48 variants of the strategy are replayed on real past prices each round; the best are kept and tried again.",
@@ -210,19 +211,20 @@ const cwrap=id=>`<div class="cw"><canvas id="${id}"></canvas></div>`;
  ["reg","Market state",8,18,4,10,3,5,`${cwrap("cReg")}<div class="mix" id="regMix"></div><div id="regime"></div>`],
  ["lab","Strategy lab",0,28,7,10,4,6,cwrap("cLab")],
  ["paths","Trade paths",7,28,5,10,4,6,cwrap("cPaths")],
- ["limits","Hard limits in use",0,38,4,7,3,4,`<div class="fill"><div id="limits"></div><div id="strats"></div></div>`],
- ["pos","Positions and orders",4,38,4,7,3,3,`<div class="fill" id="pos"></div>`],
- ["fills","Trades",8,38,4,7,3,3,`<div class="fill" id="fills"></div>`],
- ["events","What the bot is doing",0,45,12,6,4,3,`<div class="fill" id="events"></div>`],
- ["score","Forecaster scoreboard",0,51,6,8,3,3,`<div class="fill" id="score"></div>`],
- ["calls","Open calls being tracked",6,51,6,8,3,3,`<div class="fill" id="calls"></div>`],
- ["setup","Setup",0,59,12,11,4,4,`<div class="fill" id="setup"></div>`]
+ ["land","What the lab has learned",0,38,12,12,4,7,cwrap("cLand")],
+ ["limits","Hard limits in use",0,50,4,7,3,4,`<div class="fill"><div id="limits"></div><div id="strats"></div></div>`],
+ ["pos","Positions and orders",4,50,4,7,3,3,`<div class="fill" id="pos"></div>`],
+ ["fills","Trades",8,50,4,7,3,3,`<div class="fill" id="fills"></div>`],
+ ["events","What the bot is doing",0,57,12,6,4,3,`<div class="fill" id="events"></div>`],
+ ["score","Forecaster scoreboard",0,63,6,8,3,3,`<div class="fill" id="score"></div>`],
+ ["calls","Open calls being tracked",6,63,6,8,3,3,`<div class="fill" id="calls"></div>`],
+ ["setup","Setup",0,71,12,11,4,4,`<div class="fill" id="setup"></div>`]
 ].forEach(([id,t,x,y,w,h,mw,mh,body])=>{DEF[id]={id,x,y,w,h,mw,mh,t};
   const el=document.createElement("section");el.className="w";el.id="w-"+id;el.dataset.id=id;
   el.innerHTML=`<h2 class="wh"><span class="grip" aria-hidden="true">⠿</span><span class="wt" id="t-${id}">${t}</span><span class="wn" id="n-${id}"></span><span class="wb"><button data-a="min" title="Fold or unfold" aria-label="Fold or unfold ${t}">–</button><button data-a="max" title="Full screen (or double-click the title)" aria-label="Full screen ${t}">⤢</button></span></h2><div class="wbody">${body}</div><i class="rs" title="Drag to resize"></i>`;
   el.style.animationDelay=(Object.keys(EL).length*45)+"ms";grid.appendChild(el);EL[id]=el;
   if(WT[id])el.querySelector(".wt").dataset.tip=WT[id];
-  if(["acct","price","lat","ridge","matrix","graph","reg","lab","paths"].includes(id)){const c=document.createElement("div");c.className="cap";c.id="cap-"+id;el.querySelector(".wbody").appendChild(c)}});
+  if(["acct","price","lat","ridge","matrix","graph","reg","lab","paths","land"].includes(id)){const c=document.createElement("div");c.className="cap";c.id="cap-"+id;el.querySelector(".wbody").appendChild(c)}});
 let OPT=Object.assign({lock:false,auto:true,bg:true,hint:true},LS.get("opt",{})),L=LS.get("layout",null),MAXED=null,narrow=false,BUSY=false,FLOADED=false;
 function freshLayout(){const o={};for(const id in DEF){const d=DEF[id];o[id]={id,x:d.x,y:d.y,w:d.w,h:d.h,H:d.h,mode:"auto",min:false}}return o}
 
@@ -278,7 +280,7 @@ grid.addEventListener("pointerdown",e=>{const wh=e.target.closest(".wh"),rs=e.ta
 new ResizeObserver(()=>{if(!BUSY)place(view())}).observe(grid);
 /* widgets with nothing to show fold away by themselves and come back when they have something */
 const REL={fills:()=>(S.fills||[]).length>0,pos:()=>(S.positions||[]).length+(S.orders||[]).length>0,lat:()=>!!D,ridge:()=>!!RID,matrix:()=>!!(D&&D.source==="model"),
-  score:()=>(S.score||[]).length>0||!!(S.fc&&S.fc.enabled),lab:()=>!!(LAB&&LAB.gens&&LAB.gens.length),paths:()=>!!(LAB&&LAB.race&&LAB.race.v.length),calls:()=>(S.open_calls||[]).length>0};
+  score:()=>(S.score||[]).length>0||!!(S.fc&&S.fc.enabled),lab:()=>!!(LAB&&LAB.gens&&LAB.gens.length),paths:()=>!!(LAB&&LAB.race&&LAB.race.v.length),land:()=>!!(LAB&&LAB.land&&LAB.land.tested),calls:()=>(S.open_calls||[]).length>0};
 function autoFold(){if(!OPT.auto||BUSY||!S.ready||!FLOADED)return;for(const id in REL){const it=L[id],want=REL[id]();if(it.mode==="auto"&&it.min===want){setMin(id,!want,false);if(want)ping(id)}}}
 /* layout menu */
 function drawMenu(){setH("menu",`<button data-m="lock">${OPT.lock?"Unlock moving and resizing":"Lock the layout"}<span>${OPT.lock?"locked":"free"}</span></button>
@@ -462,21 +464,21 @@ function render(){
       <button class="stop" onclick="goLive()">Go live with real money</button>
       ${s.mode==="paper"?`<button onclick="if(confirm('Wipe the practice account and start over?'))post({cmd:'reset_paper'})">Reset practice account</button>`:""}
     </div>`}
-  renderModelText();syncGraph();labNote();captions();autoGrow();autoFold();zoomRefresh();
+  renderModelText();track();syncGraph();labNote();captions();autoGrow();autoFold();zoomRefresh();
 }
 function kronosRow(){const f=S.fc||{};if(!f.enabled)return"";const miss=(f.graded||0)-(f.hits||0);
   return xr("s:kronos",`<td class="cy">Kronos model (shadow)</td><td class="up">${f.hits||0}</td><td class="down">${miss}</td><td>–</td><td>${f.hit_rate==null?"new":f.hit_rate.toFixed(2)}</td>`,5,
     ()=>kv([["state",esc(f.state||"")],["graded forecasts",f.graded||0],["right",f.graded?Math.round(f.hit_rate*100)+"%":"none graded yet"],["Brier score",f.brier==null?"–":f.brier]],"Graded at 1 hour and 24 hours after each forecast. Brier score measures how honest its confidence is: 0 is perfect, 0.25 is a coin flip. It never places or sizes an order."))}
 
 /* one plain sentence under each chart: where we are, where we were, where the model thinks we are going */
-function captions(){const s=S;if(!s.ready)return;const c=s.curve||[],live=s.mode==="live",fc=s.fc||{},m=D&&D.source==="model",sp=(a,v)=>`<span class="${sign(v)}">${a}</span>`,graded=fc.graded?`right ${fc.hits} of ${fc.graded} times so far`:"not graded yet";
+function captions(){const s=S;if(!s.ready)return;const c=s.curve||[],live=s.mode==="live",fc=s.fc||{},m=D&&D.source==="model",sp=(a,v)=>`<span class="${sign(v)}">${a}</span>`,graded=fc.graded?`has been right ${fc.hits} of ${fc.graded} times so far`:"has not been graded yet";
   if(c.length){const v=c.map(x=>x[1]),b=v[0],l=v[v.length-1];setH("cap-acct",`<b>Now ${usd(s.equity)}</b>${live?"":" of practice money"}. Was ${usd(b)} at the left edge: ${sp(ud(l-b),l-b)} since. Today ${sp(ud(s.day_pnl),s.day_pnl)}. Highest ${usd(Math.max(...v))}, lowest ${usd(Math.min(...v))}.`)}
   if(s.price!=null){let t=`<b>Now ${usd0(s.price)}</b>.`;if(PXI)t+=` Was as high as ${usd0(PXI.hi)} (${pct(s.price/PXI.hi-1,1)} from there) and as low as ${usd0(PXI.lo)} (${pct(s.price/PXI.lo-1,1)}).`;
-    if(m){const e=D.bands[D.H-1];t+=` Projected: the model's middle path is ${sp(pct(e[2]/D.base-1,1),e[2]-D.base)} in ${D.H}h; 9 of its 10 futures land between ${pct(e[0]/D.base-1,1)} and ${pct(e[4]/D.base-1,1)}. The model has been ${graded} and does not trade.`}setH("cap-price",t)}
+    if(m){const e=D.bands[D.H-1];t+=` Projected: the model's middle path is ${sp(pct(e[2]/D.base-1,1),e[2]-D.base)} in ${D.H}h; 9 of its 10 futures land between ${pct(e[0]/D.base-1,1)} and ${pct(e[4]/D.base-1,1)}. The model ${graded} and does not trade.`;if(TRK)t+=` <b>Reality check:</b> ${TRK.n} of its ${D.n} futures are still within ${TOL*100}% of the real price right now.`}setH("cap-price",t)}
   if(D){const top=LAT?LAT.final.indexOf(LAT.max):-1,a=LAT&&top>=0?-LAT.span+(top-.5)*LAT.bwid:0;
-    setH("cap-lat",m?`<b>${Math.round(D.pUp*100)}% of the 48 futures end higher</b> than now. The tallest bar, the most common outcome, is ${pct(a,1)} to ${pct(a+LAT.bwid,1)}. Typical: ${sp(pct(D.med,1),D.med)}. Bad case ${pct(D.lo,1)}, good case ${pct(D.hi,1)}.`:`No model forecast yet, so this shows the last ${D.n} real hourly moves: <b>${Math.round(D.pUp*100)}% were up</b>, typical ${pct(D.med,2)}.`)}
+    setH("cap-lat",m?`<b>${Math.round(D.pUp*100)}% of the 48 futures end higher</b> than now. The tallest bar, the most common outcome, is ${pct(a,1)} to ${pct(a+LAT.bwid,1)}. Typical: ${sp(pct(D.med,1),D.med)}. Bad case ${pct(D.lo,1)}, good case ${pct(D.hi,1)}.${TRK?` The real price is ${sp(pct(TRK.ret,2),TRK.ret)} since the forecast; solid bars are the futures that still match it.`:""}`:`No model forecast yet, so this shows the last ${D.n} real hourly moves: <b>${Math.round(D.pUp*100)}% were up</b>, typical ${pct(D.med,2)}.`)}
   if(m&&RID){const pk=h=>{const d=RID.dens[h-1];let i=0;d.forEach((v,k)=>{if(v>d[i])i=k});return RID.grid[i]},p1=pk(1),pH=pk(D.H),b1=D.bands[0],bH=D.bands[D.H-1];
-    setH("cap-ridge",`<b>Now ${usd0(D.base)}</b>. Most likely in 1 hour: ${usd0(p1)}. Most likely in ${D.H} hours: <b>${usd0(pH)}</b> (${sp(pct(pH/D.base-1,1),pH-D.base)}). The ridges get wider toward the back: after 1h the futures span ${pct(b1[4]/b1[0]-1,1)}, after ${D.H}h they span ${pct(bH[4]/bH[0]-1,1)}, so the model is less sure further out.`);
+    setH("cap-ridge",`<b>Forecast made at ${usd0(D.base)}</b>. Most likely in 1 hour: ${usd0(p1)}. Most likely in ${D.H} hours: <b>${usd0(pH)}</b> (${sp(pct(pH/D.base-1,1),pH-D.base)}). The ridges get wider toward the back: after 1h the futures span ${pct(b1[4]/b1[0]-1,1)}, after ${D.H}h they span ${pct(bH[4]/bH[0]-1,1)}, so the model is less sure further out.${TRK?` The white ball is the real price: it is higher than ${Math.round(TRK.below/D.n*100)}% of the futures expect for the end of this hour.`:""}`);
     const sh=(h,l)=>Math.round(D.f.closes.filter(c=>l<0?c[h-1]<=D.base*(1+l/100):c[h-1]>=D.base*(1+l/100)).length/D.n*100);
     setH("cap-matrix",`Read a row across. <b>In ${D.H}h: ${sh(D.H,1)}% of futures are up 1% or more, ${sh(D.H,-1)}% are down 1% or more.</b> In 1h: ${sh(1,.5)}% up half a percent, ${sh(1,-.5)}% down half a percent. Brighter cell = more futures agree.`)}
   else{const why=fc.state==="idle"?"The forecast model needs real prices.":"Waiting for the forecast model: "+esc(fc.detail||fc.state||"");setH("cap-ridge",why);setH("cap-matrix",why)}
@@ -489,14 +491,20 @@ function captions(){const s=S;if(!s.ready)return;const c=s.curve||[],live=s.mode
     const R=LAB.race;if(R&&R.v.length&&PMODE==="race"){const tot=R.v.map(x=>x[1].reduce((a,y)=>a+y,0)),un=R.v.map(x=>x[1].reduce((a,y,i)=>a+(R.split[i]==="test"?y:0),0)),lt=(R.live||[]).reduce((a,y)=>a+y,0);
       setH("cap-paths",`<b>${tot.filter(v=>v>0).length} of ${tot.length} variants are ahead</b> over all ${R.t0.length} slices; ${un.filter(v=>v>0).length} are ahead on the shaded part they never trained on. Best total ${sp(ud(Math.max(...tot)),1)}, worst ${sp(ud(Math.min(...tot)),-1)}. Your live settings (amber): ${sp(ud(lt),lt)}.`)}
     else if(DETAIL){const ps=curPaths();if(ps.length){const w=ps.filter(x=>x.pnl>0).length,l=ps.filter(x=>x.pnl<0).length,tt=ps.reduce((a,x)=>a+x.pnl,0);setH("cap-paths",PSEL!=null&&ps[PSEL]?`<b>One path</b>, starting ${clock(ps[PSEL].t0)}: ${sp(ud(ps[PSEL].pnl),ps[PSEL].pnl)}. Top: the price, with each buy and exit marked. Bottom: this path's running result.`:`<b>${w} paths made money, ${l} lost, ${ps.length-w-l} never traded.</b> Total ${sp(ud(tt),tt)}. Each line is one ${PMODE==="model"?"imagined future":"slice of real history"}; above the dashed line is profit.`)}}}
-  else{setH("cap-lab",esc((LAB&&LAB.detail)||"The lab starts once price history is in."));setH("cap-paths","")}}
+  else{setH("cap-lab",esc((LAB&&LAB.detail)||"The lab starts once price history is in."));setH("cap-paths","")}
+  const Ld=LAB&&LAB.land;if(Ld&&Ld.tested){const used=Ld.n.filter(n=>n).length,b=landBest(Ld,3),lc=landCell(Ld,Ld.live[0],Ld.live[1]),r=b>=0?landRange(Ld,b):null,won=Ld.te.filter((v,i)=>Ld.n[i]>=3&&v>0).length,tried3=Ld.n.filter(n=>n>=3).length;
+    setH("cap-land",`<b>${Ld.tested.toLocaleString()} settings tried so far</b>, covering ${used} of ${Ld.n.length} regions of the map. `+(r?`Of the ${tried3} regions tried at least 3 times, <b>${won} made money on history the lab never trained on</b>. The best of them: first bid ${pc2(r[0])} to ${pc2(r[1])} below the price, selling ${pc2(r[2])} to ${pc2(r[3])} above the fill, averaging ${sp(ud(Ld.te[b]),Ld.te[b])} a slice over ${Ld.n[b]} tries. `:"No region has been tried 3 times yet. ")+
+      `Your live settings sit in a region ${Ld.n[lc]?"averaging "+sp(ud(Ld.te[lc]),Ld.te[lc])+" over "+Ld.n[lc]+" tr"+(Ld.n[lc]>1?"ies":"y"):"nobody has tried yet"}. Taller is better, only what pokes through the blue sheet made money, and thin means few tries. Test only: nothing here trades.`)}
+  else setH("cap-land",esc((LAB&&LAB.detail)||"The map fills in once the lab has run a round."))}
 
 /* ================= forecast data ================= */
 let F={forecast:null,observed:[],candles:[],state:"",detail:""},D=null,LAT=null,RID=null,fcKey=null,lastFetch=0;
 const quant=(arr,p)=>{const a=[...arr].sort((x,y)=>x-y);const i=(a.length-1)*p,lo=Math.floor(i),hi=Math.ceil(i);return a[lo]+(a[hi]-a[lo])*(i-lo)};
 async function loadForecast(){lastFetch=Date.now();try{F=await (await fetch("/api/forecast")).json();derive()}catch(e){}FLOADED=true}
+let DKEY="";
 function derive(){
-  const f=F.forecast;D=null;RID=null;SELP=null;HOURP=null;
+  const f=F.forecast,ob=F.observed||[],dk=f&&f.closes&&f.closes.length?"m"+f.made+"|"+f.base_ts:"o"+ob.length+"|"+ob[ob.length-1];if(dk===DKEY)return;DKEY=dk;mark("fc");   // nothing new: leave every chart as it is
+  D=null;RID=null;SELP=null;HOURP=null;
   if(f&&f.closes&&f.closes.length){const base=f.last_close,n=f.closes.length,H=f.horizon;
     const finals=f.closes.map(p=>p[H-1]/base-1);
     const bands=[];for(let h=0;h<H;h++){const col=f.closes.map(p=>p[h]);bands.push([.05,.25,.5,.75,.95].map(q=>quant(col,q)))}
@@ -510,7 +518,7 @@ function derive(){
       const d=gridp.map(x=>{let s=0;for(const c of col){const z=(x-c)/bw;s+=Math.exp(-.5*z*z)}return s});const m2=Math.max(...d);return d.map(v=>v/m2)});
     RID={grid:gridp,dens,lo,hi,std:[1,2,3,4,6,8,10,12,16,20,24].filter(h=>h<=H),all:[...Array(H)].map((_,i)=>i+1)};
   }else if(F.observed&&F.observed.length>5){const v=F.observed;D={source:"observed",finals:v,n:v.length,pUp:v.filter(x=>x>0).length/v.length,med:quant(v,.5),lo:quant(v,.05),hi:quant(v,.95)}}
-  latReset();renderModelText();
+  latReset();track();renderModelText();
 }
 function touchProb(price){if(!D||D.source!=="model")return null;return D.minLow.filter(l=>l<=price).length/D.n}
 function beyond(h,l){const s=new Set();D.f.closes.forEach((c,i)=>{if(l<0?c[h-1]<=D.base*(1+l/100):c[h-1]>=D.base*(1+l/100))s.add(i)});
@@ -546,7 +554,8 @@ let lastHr=null;function markHour(){const h=hour();if(h===lastHr)return;lastHr=h
 /* ================= strategy lab (shadow only) ================= */
 let LAB=null,DETAIL=null,FOCUSV=null,PMODE="race",PSEL=null,labT=0,detT=0,detKey="",LABREV=0,LABGEN=0;
 const pc=v=>(v*100).toFixed(1)+"%",ud=v=>(v>=0?"+":"-")+"$"+Math.abs(v).toFixed(2);
-async function loadLab(){labT=Date.now();try{LAB=await (await fetch("/api/lab")).json()}catch(e){return}
+async function loadLab(){labT=Date.now();try{const r=await (await fetch("/api/lab"+(LAB&&LAB.gen&&LAB.gens?"?since="+LAB.gen:""))).json();
+    if(r.unchanged&&LAB){LAB.state=r.state;LAB.detail=r.detail}else{const og=LAB?LAB.gen:null,ob=LAB?LAB.best:null;LAB=r;if(og!=null&&r.gen!==og)mark("gen");if(ob!=null&&r.best!==ob)mark("champ")}}catch(e){return}
   const want=FOCUSV!=null?FOCUSV:LAB.best;
   if(want!=null){const key=want+"|"+(FOCUSV==null?Math.floor(LAB.gen/3):0)+"|"+(S.fc&&S.fc.made);
     if(key!==detKey||Date.now()-detT>60000){detKey=key;detT=Date.now();try{const r=await fetch("/api/lab?v="+want);
@@ -557,7 +566,7 @@ function setFocusV(v,keep){FOCUSV=v;detKey="";PSEL=null;if(!keep&&PMODE==="race"
 function setPMode(m){PMODE=m;PSEL=null;labNote()}
 function focusPath(k){if(PMODE==="race")PMODE="past";const ps=curPaths();if(!ps.length)return;const order=ps.map((p,i)=>i).sort((a,b)=>ps[a].pnl-ps[b].pnl);
   if(k==="all")PSEL=null;else if(k==="best")PSEL=order[order.length-1];else if(k==="worst")PSEL=order[0];else{const at=order.indexOf(PSEL==null?order[0]:PSEL);PSEL=order[(at+k+order.length)%order.length]}labNote()}
-function labNote(){if(!LAB)return;const lv=LAB.live,last=LAB.gens&&LAB.gens.length?LAB.gens[LAB.gens.length-1].v:[],b=last.find(r=>r[0]===LAB.best);
+function labNote(){if(!LAB)return;setT("n-land",LAB.land&&LAB.land.tested?LAB.land.tested.toLocaleString()+" settings tried so far · drag to turn":"");const lv=LAB.live,last=LAB.gens&&LAB.gens.length?LAB.gens[LAB.gens.length-1].v:[],b=last.find(r=>r[0]===LAB.best);
   setT("n-lab",LAB.state==="running"&&b?`round ${LAB.gen} · ${LAB.pop} variants on ${LAB.episodes} slices of real history · best ${ud(b[3])} trained, ${ud(b[4])} on unseen · test only, never trades`:(LAB.detail||LAB.state||""));
   const d=DETAIL;if(!d){setH("n-paths",esc(LAB.detail||""));return}
   const who=d.id==="live"?"live settings":(d.id===LAB.best?"champion":"variant")+" #"+d.id,chip=(t,js,on)=>`<span class="chip${on?" on":""}" onclick="${js};event.stopPropagation()">${t}</span>`;
@@ -590,15 +599,16 @@ function drawLab(t,dt){const c0=cv("cLab");if(!c0)return;const [g,w,h]=c0,Lb=LAB
       if(k>=1)g.bezierCurveTo(mx,s[1],mx,p[1],p[0],p[1]);else{const e=k*k*(3-2*k);g.bezierCurveTo(s[0]+(mx-s[0])*k,s[1],s[0]+(mx-s[0])*k,s[1]+(p[1]-s[1])*e,ex,s[1]+(p[1]-s[1])*e)}
       g.strokeStyle=hot?C.cy:strong?"rgba(233,239,246,.95)":`rgba(${col(p[2])},${hl?.08:p[2][7]>0?.5:.2})`;g.lineWidth=hot||strong?1.8:1;if(strong||hot){g.shadowColor=hot?C.cy:C.ink;g.shadowBlur=8}g.stroke();g.shadowBlur=0})}
   pos.forEach((m,i)=>{const k=clamp(LABREV-(i-1),0,1);if(k<=0)return;const lastCol=i===n-1;m.forEach(p=>{const r=p[2],key=i+":"+r[0],strong=lead.has(key),hot=hl&&hl.has(key),s=src(i,r),e=k*k*(3-2*k);
-      const x=s&&k<1?s[0]+(p[0]-s[0])*k:p[0],y=s&&k<1?s[1]+(p[1]-s[1])*e:p[1],rad=(strong?3:1.8)+(lastCol&&!RM?.6*Math.sin(t*3+r[0]):0);
+      const x=s&&k<1?s[0]+(p[0]-s[0])*k:p[0],y=s&&k<1?s[1]+(p[1]-s[1])*e:p[1],rad=strong?3:1.8;
       g.beginPath();g.arc(x,y,rad,0,7);g.fillStyle=hot?C.cy:strong?C.ink:`rgba(${col(r)},${hl?.15:lastCol?.95:.55})`;if(lastCol||strong){g.shadowColor=g.fillStyle;g.shadowBlur=6}g.fill();g.shadowBlur=0;
       if(fv===r[0]){g.beginPath();g.arc(x,y,6,0,7);g.strokeStyle=C.warn;g.lineWidth=1.4;g.stroke()}})});
-  if(champ&&LABREV>=n-1){const pr=RM?0:(t*.8)%1;g.beginPath();g.arc(champ[0],champ[1],5+pr*10,0,7);g.strokeStyle=`rgba(233,239,246,${.6*(1-pr)})`;g.lineWidth=1;g.stroke();label(g,"best now",champ[0]-8,champ[1]-8,C.ink,"right")}
+  if(champ&&LABREV>=n-1){ringEv(g,champ[0],champ[1],"gen",1.6,5,16,C.ink);ringEv(g,champ[0],champ[1],"champ",3,6,36,C.cy);const nb=since("champ")<10;label(g,nb?"new best":"best now",champ[0]-8,champ[1]-8,nb?C.cy:C.ink,"right")}
   if(hn){const r=hn[1][2];g.beginPath();g.arc(hn[1][0],hn[1][1],5.5,0,7);g.strokeStyle=C.cy;g.lineWidth=1.5;g.stroke();
     tipHTML=`<b>Variant #${r[0]}, round ${gens[hn[0]].g}</b>`+trow("avg per slice, trained on",`<span class="${sign(r[3])}">${ud(r[3])}</span>`)+trow("avg per slice, unseen history",`<span class="${sign(r[4])}">${ud(r[4])}</span>`)+trow("slices that made money",Math.round(r[5]*100)+"%")+trow("buys per slice",r[6].toFixed(2))+trow(r[7]?"kept and re-tested":"new this round",r[7]?r[7]+" rounds":(r[1]?"child of #"+r[1]:"random newcomer"))+`<i>Its family line is lit. Click to see every trade path it took.</i>`}
   if(ck){if(hn){const id=hn[1][2][0];setFocusV(id===Lb.best?null:id)}else if(FOCUSV!=null)setFocusV(null)}}
 
 /* trade paths: one line per test slice (or per sampled future) for the variant in focus */
+const RC={gen:null,born:new Map(),gone:[],rows:null};let PKEY="";
 const TRC={buy:"#35c8ff",profit:"#00e676",stop:"#ff2e4c",time:"#ffb020"},TRN={buy:"bought",profit:"sold for a profit",stop:"stopped out",time:"sold on the time limit"};
 function drawRace(g,w,h,t,hv,ck){const R=LAB.race,E=R.t0.length,padL=46,padR=12,padT=10,padB=18;if(!E||!R.v.length)return emptyMsg(g,w,h,"The lab starts once price history is in");
   const cum=a=>{let s=0;return a.map(v=>s+=v)},rows=R.v.map(r=>({id:r[0],each:r[1],c:cum(r[1])})),live=cum(R.live||[]);
@@ -607,22 +617,26 @@ function drawRace(g,w,h,t,hv,ck){const R=LAB.race,E=R.t0.length,padL=46,padR=12,
   if(k0>0){g.fillStyle="rgba(53,200,255,.05)";g.fillRect(xb,padT,w-padR-xb,h-padT-padB);vline(g,xb,padT,h-padB,"rgba(53,200,255,.5)",[3,4]);label(g,"never trained on →",xb+5,h-padB-6,C.cy)}
   g.strokeStyle="#3a4c61";g.setLineDash([3,4]);g.beginPath();g.moveTo(padL,Y(0));g.lineTo(w-padR,Y(0));g.stroke();g.setLineDash([]);let ly=-99;[500,200,100,50,20,10,5,2,0,-2,-5,-10,-20,-50,-100,-200,-500].filter(v=>v>=lo&&v<=hi||v===0).forEach(v=>{const y=Y(v);if(y-ly<15)return;ly=y;label(g,ud(v).replace(/\.\d+$/,""),padL-5,y+3,v===0?C.ink:C.dim,"right");if(v){g.strokeStyle=C.line;g.beginPath();g.moveTo(padL,Math.round(y)+.5);g.lineTo(w-padR,Math.round(y)+.5);g.stroke()}});
   const hx=hv?clamp(Math.round((hv.x-padL)/(w-padL-padR)*E-1),0,E-1):0;let hr=null;if(hv&&hv.x>padL){let bd=22;rows.forEach(r=>{const d=Math.abs(Y(r.c[hx])-hv.y);if(d<bd){bd=d;hr=r}})}
-  const still=RM||hr,prog=still?E:Math.min(E,((t%12)/6.5)*E),full=Math.floor(prog),fr=prog-full,fv=FOCUSV==null?LAB.best:FOCUSV;
-  const path=(c)=>{g.beginPath();g.moveTo(padL,Y(0));for(let i=0;i<full;i++)g.lineTo(X(i),Y(c[i]));let tip=[full?X(full-1):padL,Y(full?c[full-1]:0)];
+  const still=RM||hr,now=performance.now(),fv=FOCUSV==null?LAB.best:FOCUSV;
+  if(RC.gen!==LAB.gen){const ids=new Set(rows.map(r=>r.id));RC.gone=RC.gen==null?[]:(RC.rows||[]).filter(r=>!ids.has(r.id)).map(r=>({c:r.c,t:now}));rows.forEach(r=>{if(!RC.born.has(r.id))RC.born.set(r.id,now)});RC.born.forEach((v,k)=>{if(!ids.has(k))RC.born.delete(k)});RC.rows=rows;RC.gen=LAB.gen}
+  const pg=id=>still?E:Math.min(E,(now-(RC.born.get(id)||0))/1400*E);
+  const path=(c,prog)=>{const full=Math.floor(prog),fr=prog-full;g.beginPath();g.moveTo(padL,Y(0));for(let i=0;i<full;i++)g.lineTo(X(i),Y(c[i]));let tip=[full?X(full-1):padL,Y(full?c[full-1]:0)];
     if(full<E){const a=full?c[full-1]:0,x0=full?X(full-1):padL;tip=[x0+(X(full)-x0)*fr,Y(a+(c[full]-a)*fr)];g.lineTo(tip[0],tip[1])}return tip};
-  rows.forEach(r=>{if(r===hr||r.id===LAB.best)return;const end=r.c[E-1],c=end>0?"0,230,118":end<0?"255,46,76":"111,127,147",tip=path(r.c);g.strokeStyle=`rgba(${c},${hr?.08:.38})`;g.lineWidth=1;g.stroke();
-    if(!still){g.beginPath();g.arc(tip[0],tip[1],1.8,0,7);g.fillStyle=`rgba(${c},.9)`;g.fill()}});
-  if(live.length){path(live);g.strokeStyle=hr?"rgba(255,176,32,.25)":C.warn;g.lineWidth=1.4;g.setLineDash([6,4]);g.stroke();g.setLineDash([]);if(!hr)label(g,"live settings",w-padR-2,Y(live[E-1])-5,C.warn,"right")}
-  const ch=rows.find(r=>r.id===LAB.best);if(ch&&ch!==hr){const tip=path(ch.c);g.strokeStyle=hr?"rgba(233,239,246,.25)":C.ink;g.lineWidth=2;g.shadowColor=C.ink;g.shadowBlur=hr?0:9;g.stroke();g.shadowBlur=0;if(!hr){g.beginPath();g.arc(tip[0],tip[1],3,0,7);g.fillStyle=C.ink;g.fill();label(g,"best now",tip[0]-6,tip[1]-8,C.ink,"right")}}
-  if(hr){const end=hr.c[E-1],c=end>0?C.up:end<0?C.down:"#9fb0c3";path(hr.c);g.strokeStyle=c;g.lineWidth=2.4;g.shadowColor=c;g.shadowBlur=10;g.stroke();g.shadowBlur=0;g.beginPath();g.arc(X(hx),Y(hr.c[hx]),4,0,7);g.fillStyle=C.ink;g.fill();
+  if(!still)RC.gone=RC.gone.filter(o=>{const k=(now-o.t)/1000;if(k>=1||o.c.length!==E)return false;path(o.c,E);g.strokeStyle=`rgba(159,176,195,${(.45*(1-k)).toFixed(3)})`;g.lineWidth=1;g.stroke();return true});     // dropped this round
+  rows.forEach(r=>{if(r===hr||r.id===LAB.best)return;const end=r.c[E-1],c=end>0?"0,230,118":end<0?"255,46,76":"111,127,147",p=pg(r.id),tip=path(r.c,p);g.strokeStyle=`rgba(${c},${hr?.08:.38})`;g.lineWidth=1;g.stroke();
+    if(p<E){g.beginPath();g.arc(tip[0],tip[1],2,0,7);g.fillStyle=`rgba(${c},.95)`;g.fill()}});
+  if(live.length){path(live,E);g.strokeStyle=hr?"rgba(255,176,32,.25)":C.warn;g.lineWidth=1.4;g.setLineDash([6,4]);g.stroke();g.setLineDash([]);if(!hr)label(g,"live settings",w-padR-2,Y(live[E-1])-5,C.warn,"right")}
+  const ch=rows.find(r=>r.id===LAB.best);if(ch&&ch!==hr){const tip=path(ch.c,pg(ch.id));g.strokeStyle=hr?"rgba(233,239,246,.25)":C.ink;g.lineWidth=2;g.shadowColor=C.ink;g.shadowBlur=hr?0:9;g.stroke();g.shadowBlur=0;if(!hr){g.beginPath();g.arc(tip[0],tip[1],3,0,7);g.fillStyle=C.ink;g.fill();label(g,"best now",tip[0]-6,tip[1]-8,C.ink,"right")}}
+  if(hr){const end=hr.c[E-1],c=end>0?C.up:end<0?C.down:"#9fb0c3";path(hr.c,E);g.strokeStyle=c;g.lineWidth=2.4;g.shadowColor=c;g.shadowBlur=10;g.stroke();g.shadowBlur=0;g.beginPath();g.arc(X(hx),Y(hr.c[hx]),4,0,7);g.fillStyle=C.ink;g.fill();
     const tr=hr.each.reduce((a,v,i)=>a+(R.split[i]==="train"?v:0),0),te=end-tr;
-    tipHTML=`<b>Variant #${hr.id}${hr.id===LAB.best?" (best now)":""}</b>`+trow("slice starting "+clock(R.t0[hx]),ud(hr.each[hx]))+trow("running total here",ud(hr.c[hx]))+trow("total on history it trained on",`<span class="${sign(tr)}">${ud(tr)}</span>`)+trow("total on history it never saw",`<span class="${sign(te)}">${ud(te)}</span>`)+`<i>Click to open every trade path this variant took.</i>`}
+    tipHTML=`<b>Variant #${hr.id}${hr.id===LAB.best?" (best now)":""}</b>`+trow("slice starting "+clock(R.t0[hx]),ud(hr.each[hx]))+trow("running total here",ud(hr.c[hx]))+trow("total on history it trained on",`<span class="${sign(tr)}">${ud(tr)}</span>`)+trow("total on history it never saw",`<span class="${sign(te)}">${ud(te)}</span>`)+`<i>A line shooting across is a variant tried for the first time this round. A grey line fading out was just dropped. Click to open every trade path this variant took.</i>`}
   label(g,clock(R.t0[0]),padL,h-4,C.dim);if(w>780)label(g,`running total over ${E} slices of real history, one line per variant`,(padL+w-padR)/2,h-4,C.dim,"center");label(g,clock(R.t0[E-1]),w-padR,h-4,C.dim,"right");
   if(ck&&hr){PMODE="past";setFocusV(hr.id===LAB.best?null:hr.id)}}
 function drawPaths(t){const c0=cv("cPaths");if(!c0)return;const [g,w,h]=c0;if(PMODE==="race"&&LAB&&LAB.race)return drawRace(g,w,h,t,hov("cPaths"),take("cPaths"));const ps=curPaths();if(!DETAIL||!ps.length)return emptyMsg(g,w,h,LAB&&LAB.state==="idle"?"The lab needs real prices":"Trade paths appear when the lab has run a round");
+  const pk=DETAIL.id+"|"+PMODE+"|"+PSEL+"|"+ps.length+"|"+ps[0].t0+"|"+ps[0].pnl;if(pk!==PKEY){PKEY=pk;mark("paths")}
   const hv=hov("cPaths"),ck=take("cPaths"),padL=44,padR=10,padT=10,padB=18,N=ps[0].eq.length,X=i=>padL+i/(N-1)*(w-padL-padR),hx=hv?clamp(Math.round((hv.x-padL)/(w-padL-padR)*(N-1)),0,N-1):0;
   if(PSEL!=null&&ps[PSEL]){const p=ps[PSEL],ph=h*.62,lo=Math.min(...p.lo),hi=Math.max(...p.hi),pad=(hi-lo)*.08||1,Y=v=>padT+(hi+pad-v)/(hi-lo+2*pad)*(ph-padT-6);       // one path, zoomed in
-    const prog=RM?N:Math.min(N,((t%9)/5.5)*N),upto=Math.floor(prog);
+    const prog=RM?N:Math.min(N,since("paths")/2.4*N),upto=Math.floor(prog);
     g.beginPath();p.hi.forEach((v,i)=>i?g.lineTo(X(i),Y(v)):g.moveTo(X(i),Y(v)));for(let i=N-1;i>=0;i--)g.lineTo(X(i),Y(p.lo[i]));g.closePath();g.fillStyle="rgba(111,127,147,.13)";g.fill();
     g.beginPath();g.moveTo(X(0),Y(p.o));for(let i=0;i<=Math.min(N-1,upto);i++)g.lineTo(X(i),Y(p.c[i]));g.strokeStyle=C.ink;g.lineWidth=1.4;g.stroke();
     [0,.5,1].forEach(q=>{const v=lo+(hi-lo)*q;label(g,Math.round(v).toLocaleString(),padL-5,Y(v)+3,C.dim,"right")});
@@ -637,7 +651,7 @@ function drawPaths(t){const c0=cv("cPaths");if(!c0)return;const [g,w,h]=c0;if(PM
   let lo=0,hi=0;ps.forEach(p=>p.eq.forEach(v=>{if(v<lo)lo=v;if(v>hi)hi=v}));const sp=(hi-lo)||1,Y=v=>padT+(hi+sp*.06-v)/(sp*1.12)*(h-padT-padB);
   let hp=-1;if(hv){let bd=1e9;ps.forEach((p,i)=>{const d=Math.abs(Y(p.eq[hx])-hv.y);if(d<bd){bd=d;hp=i}});if(bd>26)hp=-1}
   g.strokeStyle="#3a4c61";g.setLineDash([3,4]);g.beginPath();g.moveTo(padL,Y(0));g.lineTo(w-padR,Y(0));g.stroke();g.setLineDash([]);[lo,0,hi].forEach(v=>label(g,ud(v).replace(".00",""),padL-5,Y(v)+3,v===0?C.ink:C.dim,"right"));
-  const still=RM||hp>=0,prog=still?N:Math.min(N,((t%10)/4.5)*N),upto=Math.floor(prog);
+  const still=RM||hp>=0,prog=still?N:Math.min(N,since("paths")/1.8*N),upto=Math.floor(prog);
   ps.forEach((p,i)=>{if(i===hp)return;const c=p.pnl>0?"0,230,118":p.pnl<0?"255,46,76":"111,127,147";g.beginPath();g.moveTo(X(0),Y(0));for(let k=0;k<=Math.min(N-1,upto);k++)g.lineTo(X(k),Y(p.eq[k]));
     g.strokeStyle=`rgba(${c},${hp>=0?.1:p.split==="test"?.85:.3})`;g.lineWidth=p.split==="test"?1.4:1;g.stroke();
     if(hp<0)p.tr.forEach(tr=>{if(tr[0]>prog)return;g.beginPath();g.arc(X(tr[0]),Y(p.eq[tr[0]]),1.8,0,7);g.fillStyle=TRC[tr[1]];g.fill()})});
@@ -649,7 +663,8 @@ function drawPaths(t){const c0=cv("cPaths");if(!c0)return;const [g,w,h]=c0;if(PM
 
 /* ================= canvases ================= */
 const MONO=getComputedStyle(document.body).getPropertyValue("--mono");
-function cv(id){const c=$(id),r={width:c.clientWidth,height:c.clientHeight},d=window.devicePixelRatio||1;if(r.width<30||r.height<30)return null;const W=Math.round(r.width*d),H=Math.round(r.height*d);
+const OFFS=new Set(),IO=new IntersectionObserver(es=>{es.forEach(e=>e.isIntersecting?OFFS.delete(e.target.id):OFFS.add(e.target.id));kick()},{rootMargin:"150px"});document.querySelectorAll(".cw canvas").forEach(c=>IO.observe(c));   // off-screen charts are skipped
+function cv(id){if(OFFS.has(id))return null;const c=$(id),r={width:c.clientWidth,height:c.clientHeight},d=window.devicePixelRatio||1;if(r.width<30||r.height<30)return null;const W=Math.round(r.width*d),H=Math.round(r.height*d);
   if(c.width!==W||c.height!==H){c.width=W;c.height=H}const g=c.getContext("2d");g.setTransform(d,0,0,d,0,0);g.clearRect(0,0,r.width,r.height);return [g,r.width,r.height]}
 let LQ=false,HOTW=null;const quiet=id=>false;
 function label(g,t,x,y,col,align,size,keep){if(LQ&&!keep)return;g.font=(size||10)+"px "+MONO;g.fillStyle=col||C.dim;g.textAlign=align||"left";g.fillText(t,x,y)}
@@ -657,12 +672,25 @@ function emptyMsg(g,w,h,t){label(g,t,w/2,h/2,C.dim,"center",11,1)}
 function vline(g,x,y0,y1,col,dash){g.strokeStyle=col;g.lineWidth=1;g.setLineDash(dash||[]);g.beginPath();g.moveTo(Math.round(x)+.5,y0);g.lineTo(Math.round(x)+.5,y1);g.stroke();g.setLineDash([])}
 const PX=[];let pxFlash=0,pxDir=1,PXI=null;
 
-/* background: slow particles that drift with the last minute of price */
-const BGP=[...Array(70)].map(()=>({x:Math.random(),y:Math.random(),s:.3+Math.random()*.9,p:Math.random()*6.28}));
-function drawBg(t,dt){const c=$("bg"),d=1,W=innerWidth,H=innerHeight;if(c.width!==W||c.height!==H){c.width=W;c.height=H}const g=c.getContext("2d");g.clearRect(0,0,W,H);if(!OPT.bg||RM||PX.length<3)return;
-  const a=PX[Math.max(0,PX.length-60)],mom=clamp((PX[PX.length-1]/a-1)*400,-1,1),col=mom>.05?"0,230,118":mom<-.05?"255,46,76":"111,127,147";
-  for(const p of BGP){p.y-=dt*(.012+.05*mom)*p.s;p.x+=Math.sin(t*.2+p.p)*dt*.004;if(p.y<-.02)p.y=1.02;if(p.y>1.02)p.y=-.02;
-    g.beginPath();g.arc(p.x*W,p.y*H,1.1*p.s,0,7);g.fillStyle=`rgba(${col},${.12+.1*p.s})`;g.fill()}}
+/* things that really happened, and when. Every moving effect on this page starts from one of these, never from a timer. */
+const EV={},mark=(k,d)=>{EV[k]={t:performance.now(),d:d||0}},since=k=>RM||!EV[k]?1e9:(performance.now()-EV[k].t)/1000,evd=k=>EV[k]?EV[k].d:0,DIRC=d=>d>0?C.up:d<0?C.down:"#9fb0c3";
+function ringEv(g,x,y,k,dur,r0,r1,col){const q=since(k)/dur;if(q>=1)return;g.beginPath();g.arc(x,y,r0+(r1-r0)*(1-(1-q)*(1-q)),0,7);g.strokeStyle=col;g.globalAlpha=.8*(1-q);g.lineWidth=1.4;g.stroke();g.globalAlpha=1;g.lineWidth=1}
+function beat(){const el=$("status");if(RM||!el.classList.contains("ok"))return;el.classList.remove("tk");void el.offsetWidth;el.classList.add("tk")}
+/* reality check: where the real price is right now inside the model's current forecast */
+const TOL=.0025;let TRK=null;
+function track(){TRK=null;if(!D||D.source!=="model"||S.price==null)return;const f=D.f,e=(Date.now()/1000-(f.base_ts+3600))/3600;if(!(e>0)||e>=D.H)return;
+  const fl=Math.floor(e),fr=e-fl,at=f.closes.map(p=>{const a=fl?p[fl-1]:D.base,b=p[fl];return a+(b-a)*fr}),on=at.map(v=>Math.abs(v/S.price-1)<=TOL);
+  TRK={e,at,on,n:on.filter(Boolean).length,below:f.closes.filter(p=>p[fl]<S.price).length,ret:S.price/D.base-1,hour:fl+1}}
+
+/* background: sparks only when the real price changes. Up-tick: green, rising. Down-tick: red, sinking. A bigger move makes more of them. */
+const BGQ=[];let bgDirty=true;
+function bgSpark(dir,bps){if(!OPT.bg||RM||document.hidden)return;const n=clamp(Math.round(bps*2)+1,1,14);
+  for(let i=0;i<n;i++)BGQ.push({x:Math.random(),y:Math.random(),v:-dir*(.03+Math.random()*.05+Math.min(.1,bps*.01)),s:.5+Math.random()*.9,a:0,life:3+Math.random()*2,col:dir>0?"0,230,118":"255,46,76"});
+  if(BGQ.length>160)BGQ.splice(0,BGQ.length-160)}
+function drawBg(t,dt){const c=$("bg"),W=innerWidth,H=innerHeight;if(c.width!==W||c.height!==H){c.width=W;c.height=H;bgDirty=true}if(!BGQ.length&&!bgDirty)return;
+  const g=c.getContext("2d");g.clearRect(0,0,W,H);bgDirty=BGQ.length>0;if(!OPT.bg){BGQ.length=0;return}
+  for(let i=BGQ.length-1;i>=0;i--){const p=BGQ[i];p.a+=dt;if(p.a>=p.life){BGQ.splice(i,1);continue}p.y+=p.v*dt;
+    g.beginPath();g.arc(p.x*W,p.y*H,1.2*p.s,0,7);g.fillStyle=`rgba(${p.col},${(Math.sin(Math.PI*p.a/p.life)*(.16+.14*p.s)).toFixed(3)})`;g.fill()}}
 
 /* depth helpers: lit spheres, extruded bars, boxed tags */
 const shade=(hex,k)=>{const n=parseInt(hex.slice(1),16),f=v=>Math.round(clamp(k<0?v*(1+k):v+(255-v)*k,0,255));return `rgb(${f(n>>16)},${f(n>>8&255)},${f(n&255)})`};
@@ -682,36 +710,39 @@ function drawCurve(t){const c0=cv("cCurve");if(!c0)return;const [g,w,h]=c0,c=S.c
   g.save();g.beginPath();g.rect(0,yb,w,h);g.clip();g.beginPath();v.forEach((y,i)=>i?g.lineTo(X(i),Y(y)):g.moveTo(X(i),Y(y)));g.lineTo(X(v.length-1),yb);g.lineTo(X(0),yb);g.closePath();g.fillStyle="rgba(255,46,76,.18)";g.fill();g.restore();
   g.beginPath();v.forEach((y,i)=>i?g.lineTo(X(i),Y(y)):g.moveTo(X(i),Y(y)));g.strokeStyle=col;g.lineWidth=1.8;g.shadowColor=col;g.shadowBlur=8;g.stroke();g.shadowBlur=0;
   if(!flat){sphere(g,X(iHi),Y(hi),3,C.up);label(g,"high "+usd(hi),X(iHi),Y(hi)-7,C.up,iHi>v.length*.8?"right":"center");sphere(g,X(iLo),Y(lo),3,C.down);label(g,"low "+usd(lo),X(iLo),Y(lo)+14,C.down,iLo>v.length*.8?"right":"center")}
-  const ex=X(v.length-1),ey=Y(last),pr=RM?0:(t*.9)%1;g.beginPath();g.arc(ex,ey,4+pr*8,0,7);g.strokeStyle=col;g.globalAlpha=.6*(1-pr);g.stroke();g.globalAlpha=1;sphere(g,ex,ey,4,col,8);
+  (S.fills||[]).forEach(f=>{if(f.ts<c[0][0])return;let i=c.findIndex(p=>p[0]>=f.ts);if(i<0)i=v.length-1;const x=X(i),y=Y(v[i]),b=f.side==="buy",o=b?1:-1;g.beginPath();g.moveTo(x,y+5*o);g.lineTo(x-3.5,y+11*o);g.lineTo(x+3.5,y+11*o);g.closePath();g.fillStyle=b?C.cy:C.warn;g.fill()});
+  const ex=X(v.length-1),ey=Y(last);ringEv(g,ex,ey,"eq",1.4,4,17,DIRC(evd("eq")));ringEv(g,ex,ey,"fill",2.4,6,32,C.cy);sphere(g,ex,ey,4,col,8);
   tag(g,"NOW "+usd(last),ex+9,ey-3,C.ink);label(g,(last>=base?"+":"-")+"$"+Math.abs(last-base).toFixed(2)+" since start",ex+9,ey+14,col);
   const hv=hov("cCurve");if(hv){const i=clamp(Math.round((hv.x-4)/(w-padR)*(v.length-1)),0,v.length-1);vline(g,X(i),0,h,"rgba(233,239,246,.3)",[2,3]);sphere(g,X(i),Y(v[i]),3.5,"#e9eff6");
-    tipHTML=`<b>${clock(c[i][0])}</b>`+trow("account value then",usd(v[i]))+trow("versus where it started",`<span class="${sign(v[i]-base)}">${ud(v[i]-base)}</span>`)+trow("versus now",ud(last-v[i]))+trow("highest so far",usd(hi))+trow("lowest so far",usd(lo))+`<i>Green area: above where it started. Red area: below. The dashed line is the starting balance.</i>`}}
+    tipHTML=`<b>${clock(c[i][0])}</b>`+trow("account value then",usd(v[i]))+trow("versus where it started",`<span class="${sign(v[i]-base)}">${ud(v[i]-base)}</span>`)+trow("versus now",ud(last-v[i]))+trow("highest so far",usd(hi))+trow("lowest so far",usd(lo))+`<i>Green area: above where it started. Red area: below. The dashed line is the starting balance. Blue triangle: the bot bought. Amber: it sold. The dot at NOW rings each time the value really changes.</i>`}}
 
 
 /* price, candles and sampled paths */
 function drawPrice(t){const c0=cv("cPrice");if(!c0)return;const [g,w,h]=c0,cs=F.candles||[],price=S.price;if(price==null)return;
-  const hv=hov("cPrice"),ck=take("cPrice"),big=MAXED==="price",padR=58,padB=14,padT=22;
+  const big=MAXED==="price",padR=58,tape=cs.length>=6&&h>230&&PX.length>3?34:0,padB=14+tape,padT=22,hv0=hov("cPrice"),ck0=take("cPrice"),inTape=tape&&hv0&&hv0.y>h-tape,hv=inTape?null:hv0,ck=ck0&&tape&&ck0.y>h-tape?null:ck0;
   if(cs.length<6){ // no candle history (practice market): live line
     if(PX.length<2)return emptyMsg(g,w,h,"collecting prices");
     const lo=Math.min(...PX),hi=Math.max(...PX),sp=(hi-lo)||1,X=i=>i/(PX.length-1)*(w-padR),Y=y=>h-padB-(y-lo)/sp*(h-padB-padT-6);
     g.beginPath();PX.forEach((y,i)=>i?g.lineTo(X(i),Y(y)):g.moveTo(X(i),Y(y)));g.strokeStyle=C.cy;g.lineWidth=1.4;g.shadowColor=C.cy;g.shadowBlur=6;g.stroke();g.shadowBlur=0;
-    const pr=RM?0:(t*1.2)%1;g.beginPath();g.arc(w-padR,Y(price),3+pr*9,0,7);g.strokeStyle=`rgba(53,200,255,${.6*(1-pr)})`;g.stroke();
+    ringEv(g,w-padR,Y(price),"tick",.9,3,13,DIRC(evd("tick")));g.beginPath();g.arc(w-padR,Y(price),3,0,7);g.fillStyle=C.cy;g.fill();
     label(g,Math.round(price).toLocaleString(),w-padR+6,Y(price)+3,C.ink);
     if(hv&&hv.x<w-padR){const i=clamp(Math.round(hv.x/(w-padR)*(PX.length-1)),0,PX.length-1);vline(g,X(i),padT,h-padB,"rgba(233,239,246,.3)",[2,3]);g.beginPath();g.arc(X(i),Y(PX[i]),3.5,0,7);g.fillStyle=C.ink;g.fill();
       tipHTML=`<b>${PX.length-1-i} ticks ago</b>`+trow("price",usd(PX[i]))+trow("vs now",pct(PX[i]/price-1,2))}return}
   const tf=3600,model=D&&D.source==="model",H=model?D.H:0,show=cs.slice(-(big?96:model?54:78));
-  const t0=show[0][0],nowTs=Date.now()/1000,t1=Math.max(show[show.length-1][0]+tf*(1+H),nowTs+tf);
+  const t0=show[0][0],nowTs=Date.now()/1000,t1=Math.max(show[show.length-1][0]+tf*(1+H),nowTs+tf),lc=show[show.length-1],forming=lc[0]+tf>nowTs;
+  if(forming)show[show.length-1]=[lc[0],lc[1],Math.max(lc[2],price),Math.min(lc[3],price),price];     // the hour still forming follows the live price
   const X=ts=>(ts-t0)/(t1-t0)*(w-padR),iX=x=>t0+x/(w-padR)*(t1-t0);
   let lo=Math.min(price,...show.map(c=>c[3])),hi=Math.max(price,...show.map(c=>c[2]));
   if(model)D.bands.forEach(b=>{lo=Math.min(lo,b[0]);hi=Math.max(hi,b[4])});
   (S.orders||[]).forEach(o=>{if(o.price&&Math.abs(o.price/price-1)<.045){lo=Math.min(lo,o.price);hi=Math.max(hi,o.price)}});
   const pad=(hi-lo)*.06;lo-=pad;hi+=pad;const Y=p=>padT+(hi-p)/(hi-lo)*(h-padB-padT),iY=y=>hi-(y-padT)/(h-padB-padT)*(hi-lo);
   g.strokeStyle=C.line;g.lineWidth=1;for(let i=0;i<=4;i++){const p=lo+(hi-lo)*i/4,y=Math.round(Y(p))+.5;g.beginPath();g.moveTo(0,y);g.lineTo(w-padR,y);g.stroke();label(g,Math.round(p).toLocaleString(),w-padR+6,y+3,C.dim)}
-  if(big)for(let ts=Math.ceil(t0/21600)*21600;ts<t1;ts+=21600){const d=new Date(ts*1000);if(Math.abs(X(ts)-X(nowTs))>34)label(g,p2(d.getHours())+":00",X(ts),h-3,C.dim,"center")}
+  if(big)for(let ts=Math.ceil(t0/21600)*21600;ts<t1;ts+=21600){const d=new Date(ts*1000);if(Math.abs(X(ts)-X(nowTs))>34)label(g,p2(d.getHours())+":00",X(ts),h-tape-3,C.dim,"center")}
   const cw=Math.max(1.5,(X(t0+tf)-X(t0))*.62),hc=hv&&hv.x<w-padR?show.find(c=>iX(hv.x)>=c[0]&&iX(hv.x)<c[0]+tf):null;
-  show.forEach((c,i)=>{const x=X(c[0]+tf/2),upc=c[4]>=c[1],col=upc?C.up:C.down,last=i===show.length-1;g.strokeStyle=col;g.fillStyle=col;g.globalAlpha=last&&!RM?.6+.4*Math.abs(Math.sin(t*2.2)):1;
+  show.forEach((c,i)=>{const x=X(c[0]+tf/2),upc=c[4]>=c[1],col=upc?C.up:C.down,last=forming&&i===show.length-1;g.strokeStyle=col;g.fillStyle=col;
     if(c===hc){g.shadowColor=col;g.shadowBlur=10}g.beginPath();g.moveTo(x,Y(c[2]));g.lineTo(x,Y(c[3]));g.stroke();
-    const y1=Y(Math.max(c[1],c[4])),y2=Y(Math.min(c[1],c[4]));block(g,x-cw/2,y1,cw,Math.max(1,y2-y1),Math.min(3,cw*.34),col);g.shadowBlur=0;g.globalAlpha=1});
+    const y1=Y(Math.max(c[1],c[4])),y2=Y(Math.min(c[1],c[4]));block(g,x-cw/2,y1,cw,Math.max(1,y2-y1),Math.min(3,cw*.34),col);g.shadowBlur=0;
+    if(last){const fl=1-since("px")/.7;if(fl>0){g.fillStyle=`rgba(255,255,255,${(fl*.55).toFixed(2)})`;g.fillRect(x-cw/2,y1,cw,Math.max(1,y2-y1))}}});
   const hiC=show.reduce((a,c)=>c[2]>a[2]?c:a),loC=show.reduce((a,c)=>c[3]<a[3]?c:a);PXI={hi:hiC[2],lo:loC[3],hiT:hiC[0],loT:loC[0]};
   tag(g,"high "+Math.round(hiC[2]).toLocaleString(),clamp(X(hiC[0]+tf/2),40,w-padR-40),Y(hiC[2])-6,C.up,"center");tag(g,"low "+Math.round(loC[3]).toLocaleString(),clamp(X(loC[0]+tf/2),40,w-padR-40),Y(loC[3])+17,C.down,"center");
   label(g,"WAS · real prices, one bar per hour",4,12,"#b9c6d6");
@@ -721,26 +752,37 @@ function drawPrice(t){const c0=cv("cPrice");if(!c0)return;const [g,w,h]=c0,cs=F.
     g.beginPath();g.moveTo(xs(0),Y(D.base));D.bands.forEach((b,i)=>g.lineTo(xs(i+1),Y(b[4])));for(let i=D.H-1;i>=0;i--)g.lineTo(xs(i+1),Y(D.bands[i][0]));g.closePath();g.fillStyle="rgba(233,239,246,.05)";g.fill();
     g.beginPath();g.moveTo(xs(0),Y(D.base));D.bands.forEach((b,i)=>g.lineTo(xs(i+1),Y(b[3])));for(let i=D.H-1;i>=0;i--)g.lineTo(xs(i+1),Y(D.bands[i][1]));g.closePath();g.fillStyle="rgba(233,239,246,.07)";g.fill();   // the middle half, a layer in front
     g.fillStyle="rgba(53,200,255,.035)";g.fillRect(xs(0),padT,w-padR-xs(0),h-padB-padT);label(g,"PROJECTED · the model's 48 futures (shadow)",Math.max(240,Math.min(xs(0)+6,w-padR-250)),12,C.cy);
-    const still=RM||se||hr!=null||hk!=null,prog=still?1:Math.min(1,(t%11)/5.5),upto=prog*D.H;
+    const still=RM||se||hr!=null||hk!=null,prog=still?1:Math.min(1,since("fc")/2.6),upto=prog*D.H,tk=TRK&&TRK.e>.02?TRK:null;     // drawn in once, when a new forecast arrives
+    if(tk)label(g,tk.n+" of "+D.n+" still match the real price",Math.max(240,Math.min(xs(0)+6,w-padR-250)),24,tk.n?C.ink:C.warn);
     D.order.forEach(i=>{const p=f.closes[i],on=!se||se.set.has(i),dep=D.rank[i]/D.n;g.beginPath();g.moveTo(xs(0),Y(D.base));const full=Math.floor(upto);for(let k=0;k<full;k++)g.lineTo(xs(k+1),Y(p[k]));
       if(full<D.H){const a=full?p[full-1]:D.base,b=p[full],fr=upto-full;g.lineTo(xs(full)+(xs(full+1)-xs(full))*fr,Y(a+(b-a)*fr))}
-      g.lineWidth=se&&on?1.5:.6+dep*.9;g.strokeStyle=(D.finals[i]>0?"rgba(0,230,118,":"rgba(255,46,76,")+(se?(on?".95)":".06)"):(.1+.42*dep*dep).toFixed(2)+")");g.stroke()});   // unusual futures sit further back
+      const liv=tk&&tk.on[i];g.lineWidth=se&&on?1.5:tk?(liv?1.1:.5):.6+dep*.9;g.strokeStyle=(D.finals[i]>0?"rgba(0,230,118,":"rgba(255,46,76,")+(se?(on?".95)":".06)"):(tk?(liv?.6:.1):.1+.42*dep*dep).toFixed(2)+")");g.stroke()});   // futures the real price has already left behind fade
     g.beginPath();g.moveTo(xs(0),Y(D.base));D.bands.forEach((b,i)=>g.lineTo(xs(i+1),Y(b[2])));g.strokeStyle=C.ink;g.lineWidth=1.3;g.setLineDash([4,3]);g.stroke();g.setLineDash([]);
     if(hk==null&&hr==null&&!se){const e=D.bands[D.H-1],xe=xs(D.H)-3;tag(g,"best 1 in 20: "+pct(e[4]/D.base-1,1),xe,Y(e[4])-4,C.up,"right");tag(g,"middle: "+pct(e[2]/D.base-1,1),xe,Y(e[2])+4,C.ink,"right");tag(g,"worst 1 in 20: "+pct(e[0]/D.base-1,1),xe,Y(e[0])+18,C.down,"right")}
     const mk=hk!=null?hk:hr;if(mk!=null&&mk>=1&&mk<=D.H){const x=xs(mk),b=D.bands[mk-1];vline(g,x,padT,h-padB,C.cy,[3,3]);label(g,"+"+mk+"h",x,padT+9,C.cy,x>w-padR-30?"right":"center");
       [b[0],b[2],b[4]].forEach((v,i)=>{g.beginPath();g.arc(x,Y(v),i===1?3.5:2.5,0,7);g.fillStyle=i===1?C.ink:C.cy;g.fill()})}
     if(hk!=null){const b=D.bands[hk-1],col=f.closes.map(p=>p[hk-1]),pr=iY(hv.y);
-      tipHTML=`<b>Model view, ${hk}h after the last close</b>`+trow("median",usd0(b[2])+" ("+pct(b[2]/D.base-1,2)+")")+trow("middle 90% of paths",usd0(b[0])+" to "+usd0(b[4]))+trow("paths above the last close",Math.round(col.filter(v=>v>D.base).length/D.n*100)+"%")+trow("paths below your cursor",Math.round(col.filter(v=>v<pr).length/D.n*100)+"%")+`<i>Click to ${HOURP===hk?"unpin":"pin"} this hour. Shadow model: not a trade signal.</i>`}
+      tipHTML=`<b>Model view, ${hk}h after the last close</b>`+trow("median",usd0(b[2])+" ("+pct(b[2]/D.base-1,2)+")")+trow("middle 90% of paths",usd0(b[0])+" to "+usd0(b[4]))+trow("paths above the last close",Math.round(col.filter(v=>v>D.base).length/D.n*100)+"%")+trow("paths below your cursor",Math.round(col.filter(v=>v<pr).length/D.n*100)+"%")+(TRK?trow("still within "+TOL*100+"% of the real price now",TRK.n+" of "+D.n):"")+`<i>Bright paths still match where the real price is right now; faded ones have been left behind. Click to ${HOURP===hk?"unpin":"pin"} this hour. Shadow model: not a trade signal.</i>`}
     if(ck){if(ck.x>xs(0)&&ck.x<w-padR){const k=clamp(Math.round((iX(ck.x)-f.base_ts)/tf-1),1,D.H);HOURP=HOURP===k?null:k}else{SELP=null;HOURP=null}renderModelText()}}
   const below=(S.orders||[]).filter(o=>o.price&&o.price<lo).map(o=>Math.round(o.price).toLocaleString());
   if(below.length)label(g,"▼ resting bids below this view: "+below.join(", "),4,h-padB-5,C.up);
   (S.orders||[]).forEach(o=>{if(!o.price||o.price<lo||o.price>hi)return;const y=Math.round(Y(o.price))+.5,col=o.side==="buy"?C.up:C.warn,near=hv&&Math.abs(hv.y-y)<5&&hv.x>xn-10;g.strokeStyle=col;g.lineWidth=near?2:1;g.setLineDash([2,4]);g.beginPath();g.moveTo(xn,y);g.lineTo(w-padR,y);g.stroke();g.setLineDash([]);g.lineWidth=1;
     label(g,(o.side==="buy"?"bid ":"sell ")+Math.round(o.price).toLocaleString(),w-padR-4,y-3,col,"right");
     if(near){const tp=touchProb(o.price);tipHTML=`<b>Resting ${o.side} order</b>`+trow("price",usd(o.price))+trow("value",usd(o.qty*o.price))+trow("from price now",pct(o.price/price-1,2))+trow("placed by",esc(o.strategy))+(tp!=null&&o.side==="buy"?trow("model paths that reach it",Math.round(tp*100)+"%"):"")}});
+  let hf=null;(S.fills||[]).forEach((f,i)=>{if(f.ts<t0||f.ts>t1||f.price<lo||f.price>hi)return;const x=X(f.ts),y=Y(f.price),b=f.side==="buy",o=b?1:-1,cc=b?C.cy:C.warn;if(i===0)ringEv(g,x,y,"fill",2.4,5,28,cc);
+    g.beginPath();g.moveTo(x,y);g.lineTo(x-5,y+9*o);g.lineTo(x+5,y+9*o);g.closePath();g.fillStyle=cc;g.fill();g.strokeStyle=C.bg;g.lineWidth=1;g.stroke();if(hv&&Math.hypot(hv.x-x,hv.y-(y+5*o))<9)hf=f});       // the bot's own trades
+  if(hf)tipHTML=`<b>The bot ${hf.side==="buy"?"bought":"sold"} here</b>`+trow("when",clock(hf.ts))+trow("price",usd(hf.price))+trow("value",usd(hf.qty*hf.price))+trow("fee",usd(hf.fee||0))+trow("placed by",esc(hf.strategy||""))+trow("price now versus this trade",pct(price/hf.price-1,2));
   const yp=Y(price);g.strokeStyle="rgba(233,239,246,.35)";g.setLineDash([1,3]);g.beginPath();g.moveTo(0,yp);g.lineTo(w-padR,yp);g.stroke();g.setLineDash([]);
-  const pulse=RM?0:(t*1.2)%1;g.beginPath();g.arc(xn,yp,3+pulse*9,0,7);g.strokeStyle=`rgba(233,239,246,${.6*(1-pulse)})`;g.stroke();g.beginPath();g.arc(xn,yp,3,0,7);g.fillStyle=C.ink;g.fill();
+  ringEv(g,xn,yp,"tick",.9,3,14,DIRC(evd("tick")));g.beginPath();g.arc(xn,yp,3,0,7);g.fillStyle=C.ink;g.fill();
   const fl=Math.max(0,1-(performance.now()-pxFlash)/700);g.fillStyle=fl>0&&!RM?(pxDir>0?C.up:C.down):C.ink;g.fillRect(w-padR+2,yp-8,padR-2,16);label(g,Math.round(price).toLocaleString(),w-padR+6,yp+3.5,C.bg,"left",10,1);
-  vline(g,xn,padT,h-padB,"rgba(233,239,246,.3)");tag(g,"NOW",xn,h-1,C.ink,"center");
+  vline(g,xn,padT,h-padB,"rgba(233,239,246,.3)");tag(g,"NOW",xn,h-tape-1,C.ink,"center");
+  if(tape){const n=Math.min(PX.length,120),a=PX.slice(-n),y0=h-tape+8,y1=h-4,tl=Math.min(...a),th=Math.max(...a),tsp=(th-tl)||1,st=(w-padR-4)/119,sl=(1-Math.min(1,since("tick")/.35))*st,TX=i=>w-padR-(n-1-i)*st+sl,TY=v=>y1-(v-tl)/tsp*(y1-y0);
+    g.fillStyle="rgba(6,9,14,.9)";g.fillRect(0,h-tape,w,tape);g.strokeStyle=C.line;g.beginPath();g.moveTo(0,h-tape+.5);g.lineTo(w,h-tape+.5);g.stroke();      // live strip: one point per real price reading; it steps left when a new one arrives
+    g.save();g.beginPath();g.rect(0,h-tape,w-padR+3,tape);g.clip();g.lineWidth=1.3;
+    for(let i=1;i<n;i++){g.beginPath();g.moveTo(TX(i-1),TY(a[i-1]));g.lineTo(TX(i),TY(a[i]));g.strokeStyle=a[i]>a[i-1]?C.up:a[i]<a[i-1]?C.down:"#5b6f86";g.stroke()}
+    g.restore();g.lineWidth=1;sphere(g,w-padR+sl,TY(a[n-1]),2.6,DIRC(evd("tick")),6);tag(g,"LIVE · last "+n+" readings",4,h-tape+13,C.cy);label(g,pct(a[n-1]/a[0]-1,2),w-padR+8,h-tape/2+3,DIRC(a[n-1]-a[0]));
+    if(inTape){const i=clamp(Math.round(n-1-(w-padR-hv0.x)/st),0,n-1),ago=n-1-i;vline(g,TX(i)-sl,h-tape,h,"rgba(233,239,246,.5)",[2,3]);
+      tipHTML=`<b>${ago?ago+" reading"+(ago>1?"s":"")+" ago":"The newest reading"}</b>`+trow("price then",usd(a[i]))+trow("versus now",pct(price/a[i]-1,3))+trow("highest in this strip",usd(th))+trow("lowest in this strip",usd(tl))+trow("change across the strip",pct(a[n-1]/a[0]-1,3))+`<i>Each step is one real price reading, about one a second. Green: it moved up. Red: down. Grey: unchanged. The strip only moves when a new reading arrives.</i>`}}
   if(hv&&hv.x<w-padR){vline(g,hv.x,padT,h-padB,"rgba(233,239,246,.25)",[2,3]);g.strokeStyle="rgba(233,239,246,.25)";g.setLineDash([2,3]);g.beginPath();g.moveTo(0,hv.y);g.lineTo(w-padR,hv.y);g.stroke();g.setLineDash([]);
     if(hv.y>padT&&hv.y<h-padB){g.fillStyle=C.panel2||"#0d131b";g.fillRect(w-padR+2,hv.y-8,padR-2,16);label(g,Math.round(iY(hv.y)).toLocaleString(),w-padR+6,hv.y+3.5,C.cy)}
     if(hc&&!tipHTML)tipHTML=`<b>Hour starting ${clock(hc[0])}</b>`+trow("open",usd(hc[1]))+trow("high",usd(hc[2]))+trow("low",usd(hc[3]))+trow("close",usd(hc[4]))+trow("move",`<span class="${sign(hc[4]-hc[1])}">${pct(hc[4]/hc[1]-1,2)}</span>`)+trow("range",pct(hc[2]/hc[3]-1,2))+trow("versus now",pct(price/hc[4]-1,2))+`<i>${hc[4]>=hc[1]?"Green: buyers pushed the price up over this hour.":"Red: sellers pushed the price down over this hour."} The thin line reaches the highest and lowest prices touched.</i>`}}
@@ -751,31 +793,34 @@ function latReset(){const vals=D?D.finals:[];if(!vals.length){LAT=null;return}
   const balls=vals.map((v,i)=>{const b=clamp(Math.round((v+span)/(2*span)*(B-1)),0,B-1);const steps=[...Array(Rw)].map((_,k)=>k<b?1:0);
     for(let k=Rw-1;k>0;k--){const j=Math.floor(rnd()*(k+1));[steps[k],steps[j]]=[steps[j],steps[k]]}return {v,b,steps,t0:.4+i*.17}});
   const final=Array(B).fill(0),sets=[...Array(B)].map(()=>new Set());balls.forEach((b,i)=>{final[b.b]++;sets[b.b].add(i)});const bwid=2*span/(B-1);
-  LAT={B,R:Rw,span,balls,final,max:Math.max(...final),shown:Array(B).fill(0),prev:Array(B).fill(0),pulse:Array(B).fill(0),start:null,bwid,
+  LAT={B,R:Rw,span,balls,final,max:Math.max(...final),shown:Array(B).fill(0),son:Array(B).fill(0),prev:Array(B).fill(0),pulse:Array(B).fill(0),start:null,bwid,
     sets:sets.map((s,k)=>({set:s,key:"l"+k,bin:k,label:`${s.size} of ${vals.length} paths ending ${pct(-span+(k-.5)*bwid,1)} to ${pct(-span+(k+.5)*bwid,1)}`}))}}
 /* probability lattice with depth: lit balls, pegs, and extruded bars */
 function drawLat(t){const c0=cv("cLat");if(!c0)return;const [g,w,h]=c0;if(!LAT)return emptyMsg(g,w,h,S.fc&&S.fc.state==="idle"?"needs real prices":"waiting for price history");
-  const Lt=LAT,rowT=.1,hold=7,dur=Lt.balls[Lt.balls.length-1].t0+Lt.R*rowT+hold;if(Lt.start==null)Lt.start=t;let e=t-Lt.start;if(e>dur){Lt.start=t;e=0}if(RM)e=dur-1;
+  const Lt=LAT,rowT=.1,hold=7,dur=Lt.balls[Lt.balls.length-1].t0+Lt.R*rowT+hold;if(Lt.start==null)Lt.start=t;let e=Math.min(t-Lt.start,dur-1);if(RM)e=dur-1;
   const pegH=h*.46,barH=h-pegH-46,y0=10,dy=(pegH-12)/Lt.R,dx=Math.min((w-30)/(Lt.B-1),dy*1.6),cx=w/2,X=(c,s)=>cx+(c-s/2)*dx,Yr=s=>y0+s*dy,model=D.source==="model";
   const hv=hov("cLat"),ck=take("cLat"),binAt=x=>{const k=Math.round((x-cx)/dx+Lt.R/2);return k>=0&&k<Lt.B?k:-1},hk=hv?binAt(hv.x):-1,se=sel();
   for(let s=0;s<Lt.R;s++)for(let c=0;c<=s;c++){const x=X(c,s),y=Yr(s);g.beginPath();g.ellipse(x+1.5,y+2.2,2,1,0,0,7);g.fillStyle="rgba(0,0,0,.5)";g.fill();sphere(g,x,y,1.7,"#5b6f86")}
-  const counts=Array(Lt.B).fill(0);
-  Lt.balls.forEach((b,i)=>{const el=e-b.t0;if(el<0)return;const s=el/rowT,col=b.v>0?C.up:b.v<0?C.down:"#9fb0c3";if(s>=Lt.R){counts[b.b]++;return}
+  const counts=Array(Lt.B).fill(0),tk=model&&TRK&&TRK.e>.02?TRK:null,con=Array(Lt.B).fill(0);
+  Lt.balls.forEach((b,i)=>{const el=e-b.t0;if(el<0)return;const s=el/rowT,col=b.v>0?C.up:b.v<0?C.down:"#9fb0c3";if(s>=Lt.R){counts[b.b]++;if(!tk||tk.on[i])con[b.b]++;return}
     const P=q=>{q=Math.max(0,q);const k=Math.floor(q),fr=q-k;let c=0;for(let j=0;j<k;j++)c+=b.steps[j];const c2=c+b.steps[k];return [X(c,k)+(X(c2,k+1)-X(c,k))*fr,Yr(k)+dy*fr-Math.sin(Math.PI*fr)*dy*.28]};
     const dim=se&&model&&!se.set.has(i);[[.7,.16],[.35,.36]].forEach(([lag,a])=>{const [x,y]=P(s-lag);g.beginPath();g.arc(x,y,2,0,7);g.fillStyle=col;g.globalAlpha=dim?a*.2:a;g.fill()});g.globalAlpha=dim?.2:1;const [x,y]=P(s);sphere(g,x,y,3.2,col,8);g.globalAlpha=1});
   const base=h-34,bw=dx*.66,mid=(Lt.B-1)/2,top=Lt.final.indexOf(Lt.max);
   for(let k=0;k<Lt.B;k++){if(counts[k]>Lt.prev[k])Lt.pulse[k]=1;Lt.prev[k]=counts[k];Lt.pulse[k]*=.93;Lt.shown[k]+=(counts[k]-Lt.shown[k])*.18;
     const bh=Lt.shown[k]/Lt.max*barH,col=k<mid?C.down:k>mid?C.up:"#9fb0c3",pinned=SELP&&SELP.key==="l"+k,x=X(k,Lt.R)-bw/2;
-    g.globalAlpha=k===hk||pinned?1:.9;block(g,x,base-bh,bw,bh,dx*.2,col);g.globalAlpha=1;if(Lt.pulse[k]>.05&&!RM){g.fillStyle=`rgba(255,255,255,${Lt.pulse[k]*.5})`;g.fillRect(x,base-bh,bw,bh)}
+    Lt.son[k]+=(con[k]-Lt.son[k])*.18;const oh=Lt.son[k]/Lt.max*barH;if(bh-oh>.6){g.globalAlpha=.2;block(g,x,base-bh,bw,bh,dx*.2,col)}
+    g.globalAlpha=k===hk||pinned?1:.9;block(g,x,base-oh,bw,oh,dx*.2,col);g.globalAlpha=1;if(Lt.pulse[k]>.05&&!RM){g.fillStyle=`rgba(255,255,255,${Lt.pulse[k]*.5})`;g.fillRect(x,base-bh,bw,bh)}
     g.fillStyle="#22303f";g.fillRect(x,base,bw+dx*.2,1.5);if(k===hk||pinned){g.strokeStyle=pinned?C.cy:C.ink;g.lineWidth=1;g.strokeRect(x-1.5,base-Math.max(bh,6)-1.5,bw+3,Math.max(bh,6)+3)}
     if(Lt.shown[k]>.5)label(g,String(Math.round(Lt.shown[k])),x+bw/2,base-bh-dx*.2-3,C.dim,"center",9)}
   const zx=X(mid,Lt.R);vline(g,zx,base-barH-8,base+3,"rgba(233,239,246,.35)",[2,3]);
+  if(tk){const rx=clamp(X((tk.ret+Lt.span)/(2*Lt.span)*(Lt.B-1),Lt.R),6,w-6);Lt.rx=Lt.rx==null?rx:Lt.rx+(rx-Lt.rx)*.15;vline(g,Lt.rx,base-barH-12,base+3,C.ink);
+    g.beginPath();g.moveTo(Lt.rx,base-barH-6);g.lineTo(Lt.rx-4,base-barH-13);g.lineTo(Lt.rx+4,base-barH-13);g.closePath();g.fillStyle=C.ink;g.fill();tag(g,"real price so far "+pct(tk.ret,2),clamp(Lt.rx,74,w-74),base-barH-17,C.ink,"center")}
   label(g,pct(-Lt.span,1),Math.max(18,X(0,Lt.R)),base+13,C.down,"center");label(g,"no change",zx,base+13,C.ink,"center");label(g,pct(Lt.span,1),Math.min(w-18,X(Lt.B-1,Lt.R)),base+13,C.up,"center");
   label(g,"◀ lower",2,base+27,C.down);label(g,"higher ▶",w-2,base+27,C.up,"right");
   if(e>dur-hold+.5||RM){const mx=X((D.med+Lt.span)/(2*Lt.span)*(Lt.B-1),Lt.R);g.beginPath();g.moveTo(mx,base+2);g.lineTo(mx-4,base+8);g.lineTo(mx+4,base+8);g.closePath();g.fillStyle=C.cy;g.fill();
     tag(g,"most likely",clamp(X(top,Lt.R),36,w-36),Math.max(pegH+16,base-Lt.final[top]/Lt.max*barH-dx*.2-16),C.ink,"center")}
   if(hk>=0){const n=Lt.final[hk],a=-Lt.span+(hk-.5)*Lt.bwid;if(model&&n)NEXT.sel=Lt.sets[hk];const cumBelow=Lt.final.slice(0,hk).reduce((x,y)=>x+y,0),N=Lt.balls.length;
-    tipHTML=`<b>Ending ${pct(a,1)} to ${pct(a+Lt.bwid,1)}${model?" in 24 hours":" in one hour"}</b>`+trow(model?"imagined futures landing here":"real hours that moved this much",n+" of "+N+" ("+Math.round(n/N*100)+"%)")+trow("landing lower than this",Math.round(cumBelow/N*100)+"%")+trow("landing higher than this",Math.round((N-cumBelow-n)/N*100)+"%")+(model?trow("in dollars, roughly",usd0(D.base*(1+a))+" to "+usd0(D.base*(1+a+Lt.bwid))):"")+`<i>A tall bar means many ${model?"of the model's futures":"past hours"} agree on that size of move. A wide spread of bars means little agreement.${model&&n?" These paths are lit on the price chart; click to pin them.":""}</i>`}
+    tipHTML=`<b>Ending ${pct(a,1)} to ${pct(a+Lt.bwid,1)}${model?" in 24 hours":" in one hour"}</b>`+trow(model?"imagined futures landing here":"real hours that moved this much",n+" of "+N+" ("+Math.round(n/N*100)+"%)")+trow("landing lower than this",Math.round(cumBelow/N*100)+"%")+trow("landing higher than this",Math.round((N-cumBelow-n)/N*100)+"%")+(model?trow("in dollars, roughly",usd0(D.base*(1+a))+" to "+usd0(D.base*(1+a+Lt.bwid))):"")+(tk&&n?trow("of these, still matching the real price",con[hk]+" of "+n):"")+`<i>A tall bar means many ${model?"of the model's futures":"past hours"} agree on that size of move. A wide spread of bars means little agreement.${tk?" The solid part of a bar is the futures still within "+TOL*100+"% of where the real price is right now; the faded part has been left behind.":""}${model&&n?" These paths are lit on the price chart; click to pin them.":""}</i>`}
   if(ck){const k=binAt(ck.x);SELP=model&&k>=0&&Lt.final[k]&&!(SELP&&SELP.key==="l"+k)?Lt.sets[k]:null;renderModelText()}}
 
 /* forecast ridge in perspective: the front row is the next hour, the back row is 24 hours out */
@@ -788,19 +833,22 @@ function drawRidge(t){const c0=cv("cRidge");if(!c0)return;const [g,w,h]=c0;if(!R
   for(let i=0;i<=6;i++){const p=Rd.lo+(Rd.hi-Rd.lo)*i/6;g.strokeStyle="rgba(111,127,147,.16)";g.lineWidth=1;g.beginPath();g.moveTo(PX_(p,0),yb(0));g.lineTo(PX_(p,K-1),yb(K-1));g.stroke()}     // the floor, receding
   g.strokeStyle="rgba(233,239,246,.45)";g.lineWidth=1.2;g.beginPath();g.moveTo(PX_(D.base,0),yb(0));g.lineTo(PX_(D.base,K-1),yb(K-1));g.stroke();
   const peaks=[];
-  for(let k=K-1;k>=0;k--){const s=S_(k),y=yb(k),d=Rd.dens[hs[k]-1],strong=k===ak,pts=Rd.grid.map((p,i)=>[PX_(p,k),y-d[i]*amp*s]),xb=PX_(D.base,k);let pi=0;d.forEach((v,i)=>{if(v>d[pi])pi=i});peaks[k]=[pts[pi][0],pts[pi][1],Rd.grid[pi]];
+  for(let k=K-1;k>=0;k--){const s=S_(k),y=yb(k),d=Rd.dens[hs[k]-1],strong=k===ak,er=RM?1:1-Math.pow(1-clamp((since("fc")-k*.05)/.8,0,1),3),pts=Rd.grid.map((p,i)=>[PX_(p,k),y-d[i]*amp*s*er]),xb=PX_(D.base,k);let pi=0;d.forEach((v,i)=>{if(v>d[pi])pi=i});peaks[k]=[pts[pi][0],pts[pi][1],Rd.grid[pi]];
     const gr=g.createLinearGradient(0,y-amp*s,0,y);gr.addColorStop(0,strong?"rgba(30,48,68,.97)":"rgba(16,24,34,.96)");gr.addColorStop(1,"rgba(7,10,15,.97)");
     g.beginPath();g.moveTo(pts[0][0],y);pts.forEach(p=>g.lineTo(p[0],p[1]));g.lineTo(pts[pts.length-1][0],y);g.closePath();g.fillStyle=gr;g.fill();
-    const fade=.45+.55*s*s/(1)*(1/1),glow=strong?1:RM?.8:.6+.4*Math.max(0,Math.cos(t*1.1-k*.55));
+    const fade=.45+.55*s*s/(1)*(1/1),glow=strong?1:.8;
     [[0,xb,C.down],[xb,w,C.up]].forEach(([a,b,col])=>{g.save();g.beginPath();g.rect(a,0,b-a,h);g.clip();g.beginPath();pts.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));
       g.strokeStyle=col;g.globalAlpha=(ak>=0&&!strong?.35:1)*fade*glow;g.lineWidth=(strong?2.4:1.5)*Math.max(.6,s);g.shadowColor=col;g.shadowBlur=(strong?12:5)*glow;g.stroke();g.restore()});
     if(K<=14||k%2===0||strong)label(g,"+"+hs[k]+"h",pts[0][0]-4,y+3,strong?C.cy:C.dim,"right",Math.max(8,10*s))}
   g.beginPath();peaks.forEach((p,k)=>k?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.strokeStyle="rgba(233,239,246,.85)";g.lineWidth=1.3;g.setLineDash([4,3]);g.stroke();g.setLineDash([]);peaks.forEach((p,k)=>sphere(g,p[0],p[1],2.6*Math.max(.6,S_(k)),"#e9eff6"));
-  tag(g,"NOW "+usd0(D.base),PX_(D.base,0),front+15,C.ink,"center");tag(g,"most likely in "+hs[K-1]+"h: "+usd0(peaks[K-1][2]),peaks[K-1][0],Math.max(34,peaks[K-1][1]-9),peaks[K-1][2]>=D.base?C.up:C.down,peaks[K-1][0]>w*.6?"right":"left");
+  if(TRK){const kk=Math.max(0,hs.findIndex(v=>v>=TRK.hour)),dn=Rd.dens[hs[kk]-1],pr=clamp(S.price,Rd.lo,Rd.hi),gi=(pr-Rd.lo)/(Rd.hi-Rd.lo)*(Rd.grid.length-1),i0=Math.floor(gi),dv=dn[i0]+(dn[Math.min(i0+1,dn.length-1)]-dn[i0])*(gi-i0);
+    Rd.bx=Rd.bx==null?pr:Rd.bx+(pr-Rd.bx)*.12;const bx=PX_(Rd.bx,kk),by=yb(kk)-dv*amp*S_(kk);g.strokeStyle="rgba(233,239,246,.7)";g.lineWidth=1;g.beginPath();g.moveTo(bx,yb(kk));g.lineTo(bx,by);g.stroke();       // the real price, standing on the ridge for this hour
+    ringEv(g,bx,by-4,"tick",.9,5,15,DIRC(evd("tick")));sphere(g,bx,by-4,4.5,"#e9eff6",10);tag(g,"REAL PRICE · higher than "+Math.round(TRK.below/D.n*100)+"% of the futures expect this hour",bx+(bx>w*.55?-9:9),Math.max(26,by-12),C.ink,bx>w*.55?"right":"left")}
+  tag(g,"forecast made at "+usd0(D.base),PX_(D.base,0),front+15,C.ink,"center");tag(g,"most likely in "+hs[K-1]+"h: "+usd0(peaks[K-1][2]),peaks[K-1][0],Math.max(34,peaks[K-1][1]-9),peaks[K-1][2]>=D.base?C.up:C.down,peaks[K-1][0]>w*.6?"right":"left");
   label(g,"near = soon",4,front+15,C.dim);label(g,"far = later",4,12,C.dim);label(g,"◀ lower price",w/2-12,12,C.down,"right");label(g,"higher price ▶",w/2+12,12,C.up);
   const bids=(S.orders||[]).filter(o=>o.side==="buy"&&o.price>Rd.lo&&o.price<Rd.hi);bids.forEach(o=>{g.strokeStyle=C.up;g.setLineDash([2,4]);g.beginPath();g.moveTo(PX_(o.price,0),yb(0));g.lineTo(PX_(o.price,K-1),yb(K-1));g.stroke();g.setLineDash([]);label(g,"bid "+Math.round(touchProb(o.price)*100)+"%",PX_(o.price,0),front+15,C.up,"center")});
   if(hk>=0){const hh=hs[hk],b=D.bands[hh-1],col=D.f.closes.map(p=>p[hh-1]),pr=clamp(inv(hv.x,hk),Rd.lo,Rd.hi),pk=peaks[hk];g.beginPath();g.arc(hv.x,yb(hk),3,0,7);g.fillStyle=C.cy;g.fill();
-    tipHTML=`<b>${hh} hour${hh>1?"s":""} from the last close</b>`+trow("most likely price (the peak)",usd0(pk[2])+" ("+pct(pk[2]/D.base-1,2)+")")+trow("middle of all futures",usd0(b[2]))+trow("middle 90% of futures",usd0(b[0])+" to "+usd0(b[4]))+trow("spread of that range",pct(b[4]/b[0]-1,1))+trow("futures below "+usd0(pr),Math.round(col.filter(v=>v<pr).length/D.n*100)+"%")+trow("futures above the last close",Math.round(col.filter(v=>v>D.base).length/D.n*100)+"%")+`<i>A tall, narrow ridge: the model's futures agree. A low, wide one: they disagree. Red is below the last close, green above. Click to ${HOURP===hh?"unpin":"pin"} this hour on the price chart.</i>`}
+    tipHTML=`<b>${hh} hour${hh>1?"s":""} from the last close</b>`+trow("most likely price (the peak)",usd0(pk[2])+" ("+pct(pk[2]/D.base-1,2)+")")+trow("middle of all futures",usd0(b[2]))+trow("middle 90% of futures",usd0(b[0])+" to "+usd0(b[4]))+trow("spread of that range",pct(b[4]/b[0]-1,1))+trow("futures below "+usd0(pr),Math.round(col.filter(v=>v<pr).length/D.n*100)+"%")+trow("futures above the last close",Math.round(col.filter(v=>v>D.base).length/D.n*100)+"%")+(TRK?trow("the real price right now",usd0(S.price)+", higher than "+Math.round(TRK.below/D.n*100)+"% of the futures expect by the end of this hour"):"")+`<i>The white ball is the real price, standing where the model put it for this hour: on the peak means it expected this, out on the flat means it is surprised. A tall, narrow ridge: the model's futures agree. A low, wide one: they disagree. Red is below the last close, green above. Click to ${HOURP===hh?"unpin":"pin"} this hour on the price chart.</i>`}
   if(ck){const hh=hs[rowAt(ck.y)];HOURP=HOURP===hh?null:hh;renderModelText()}}
 
 /* market state over time, layered: was on the left, now on the right */
@@ -811,7 +859,8 @@ function drawReg(t){const c0=cv("cReg");if(!c0)return;const [g,w,h]=c0,d=S.regim
     g.beginPath();top.forEach((v,i)=>{const y=Math.max(1,H-v*H);i?g.lineTo(X(i),y):g.moveTo(X(i),y)});g.strokeStyle=col;g.lineWidth=1.5;g.shadowColor="rgba(0,0,0,.8)";g.shadowBlur=6;g.shadowOffsetY=3;g.stroke();g.shadowBlur=0;g.shadowOffsetY=0;
     const share=lastR[ix],ym=H-(acc+share/2)*H;acc+=share;if(share>.04)label(g,name+" "+Math.round(share*100)+"%",w-padR+8,clamp(ym+3,9,H-2),col==="#8fa3b8"?"#b9c6d6":col);prev=top});
   vline(g,w-padR,0,H,"rgba(233,239,246,.6)");label(g,"NOW",w-padR,h-3,C.ink,"center");label(g,clock(d[0][0]).slice(6),0,h-3,C.dim);label(g,"was",44,h-3,C.dim);
-  if(!RM){const sx=(t*.25%1)*(w-padR),gr=g.createLinearGradient(sx-60,0,sx,0);gr.addColorStop(0,"rgba(233,239,246,0)");gr.addColorStop(1,"rgba(233,239,246,.07)");g.fillStyle=gr;g.fillRect(sx-60,0,60,H)}
+  {const k=since("reg")/1.6,p0=d[d.length-2],dt_=lastR[1]-p0[1],dp=lastR[3]-p0[3],mv=Math.abs(dt_)+Math.abs(dp)+Math.abs(lastR[2]-p0[2]);      // the newest reading lights up only if the mix really moved, coloured by what grew
+    if(k<1&&mv>.004){const x0=Math.min(X(d.length-2),w-padR-14),c=dp>Math.abs(dt_)*.5&&dp>0?"255,46,76":dt_>0?"0,230,118":"233,239,246";g.fillStyle=`rgba(${c},${(clamp(mv*6,.08,.4)*(1-k)).toFixed(3)})`;g.fillRect(x0,0,w-padR-x0,H)}}
   const hv=hov("cReg");if(hv&&hv.x<=w-padR){const i=clamp(Math.round(hv.x/(w-padR)*(d.length-1)),0,d.length-1),r=d[i],lead=r[3]>.5?"panic":r[1]>.5?"trending":"choppy",size=lead==="panic"?"a quarter":lead==="trending"?"three-quarters":"full";vline(g,X(i),0,H,"rgba(233,239,246,.5)",[2,3]);
     tipHTML=`<b>${clock(r[0])}</b>`+trow("trend (moving one way)",`<span class="up">${Math.round(r[1]*100)}%</span>`)+trow("chop (back and forth)",Math.round(r[2]*100)+"%")+trow("panic (violent or falling fast)",`<span class="down">${Math.round(r[3]*100)}%</span>`)+trow("the read at that moment",lead)+trow("trade size it implies",size)+`<i>Whichever band fills more than half the height is in charge. A tall red band means the bot is trading at a quarter size.</i>`}}
 
@@ -916,11 +965,12 @@ function syncGraph(){const s=S;if(!s.ready)return;for(const k in Gs.nodes)Gs.nod
   for(const k in Gs.nodes){const n=Gs.nodes[k];if(!n.alive){delete Gs.nodes[k];continue}if(!n.sm){const d=inner(k);n.steps=d?d.steps:[]}}
   Gs.edges=E;if(Gs.focus&&!Gs.nodes[Gs.focus])Gs.focus=null;
   /* dots: one per real event since the last snapshot */
-  const P=Gs.prev,lastR=(s.inner&&s.inner.risk&&s.inner.risk.last)||{};Gs.prev={...F,price:s.price,size:s.regime.size_mult,state:s.regime.state,tilt:s.score_tilt,made:fc.made,gen:LAB?LAB.gen:0};
-  if(s.price!=null){if(P&&P.price!=null&&s.price!==P.price){pxFlash=performance.now();pxDir=s.price>P.price?1:-1}PX.push(s.price);if(PX.length>300)PX.shift()}
+  const P=Gs.prev,lastR=(s.inner&&s.inner.risk&&s.inner.risk.last)||{};const rh=s.regime_hist||[],rts=rh.length?rh[rh.length-1][0]:0;Gs.prev={...F,eq:s.equity,rts,price:s.price,size:s.regime.size_mult,state:s.regime.state,tilt:s.score_tilt,made:fc.made,gen:LAB?LAB.gen:0};
+  if(s.price!=null){if(P&&P.price!=null&&s.price!==P.price){pxFlash=performance.now();pxDir=s.price>P.price?1:-1;mark("px",pxDir);bgSpark(pxDir,Math.abs(s.price/P.price-1)*1e4)}PX.push(s.price);if(PX.length>300)PX.shift()}
   if(!P||F.ticks<P.ticks)return;
   const d=k=>Math.max(0,(F[k]||0)-(P[k]||0)),dir=s.price>P.price?C.up:s.price<P.price?C.down:"rgba(159,176,195,.85)",from=Gs.nodes["s:"+lastR.strategy]?"s:"+lastR.strategy:st[0]?"s:"+st[0].name:null,ipush=(key,n,col,end)=>{if(Gs.focus){const q=inner(Gs.focus);if(q&&q.flow===key)for(let i=0;i<Math.min(n,4);i++)Gs.ip.push({u:-i*.5,end:end==null?q.steps.length-1-(q.steps[q.steps.length-1].side?1:0):end,col})}};
-  const nt=d("ticks");if(nt){emit("feed","regime",dir,nt,"price update");st.forEach(x=>emit("feed","s:"+x.name,dir,nt,"price update, read by the strategy"));emit("acct","risk","rgba(159,176,195,.6)",nt,"account value checked against today's loss cap");ipush("ticks",nt,dir)}
+  if(P.eq!=null&&s.equity!==P.eq)mark("eq",s.equity>P.eq?1:-1);if(P.rts&&rts!==P.rts)mark("reg");
+  const nt=d("ticks");if(nt){mark("tick",s.price>P.price?1:s.price<P.price?-1:0);beat();emit("feed","regime",dir,nt,"price update");st.forEach(x=>emit("feed","s:"+x.name,dir,nt,"price update, read by the strategy"));emit("acct","risk","rgba(159,176,195,.6)",nt,"account value checked against today's loss cap");ipush("ticks",nt,dir)}
   const ne=d("evals");if(ne){const q=Gs.focus&&inner(Gs.focus);ipush("evals",1,dir,q&&q.flow==="evals"&&q.end?q.end():null)}
   if(d("score_checks")){emit("feed","score",C.cy,1,"price checked against the open analyst calls");ipush("score_checks",1,C.cy)}
   if(d("candles")){emit("feed","model",C.cy,4,"hourly prices refreshed");emit("feed","lab",C.cy,4,"hourly prices refreshed")}
@@ -930,7 +980,7 @@ function syncGraph(){const s=S;if(!s.ready)return;for(const k in Gs.nodes)Gs.nod
   if(nc&&from){emit(from,"risk",C.cy,nc,"order asking: "+(lastR.side||"")+" "+usd0(lastR.usd));Gs.nodes.risk.flash=1;const q=inner("risk");ipush("checks",nc,lastR.ok?C.up:C.down,lastR.ok?8:q.end(lastR))}
   if(np)emit("risk",od.length?"o:"+(od.length-1):"acct",C.up,np,"order approved");
   if(nr&&from)emit("risk",from,C.down,nr,"order refused: "+(lastR.why||""));
-  if(nf){const f=(s.fills||[])[0];emit(od.length?"o:0":"risk","acct",f&&f.side==="buy"?C.up:C.warn,nf*2,"trade filled"+(f?": "+f.side+" at "+usd0(f.price):""));Gs.nodes.acct.flash=1}
+  if(nf){mark("fill");const f=(s.fills||[])[0];emit(od.length?"o:0":"risk","acct",f&&f.side==="buy"?C.up:C.warn,nf*2,"trade filled"+(f?": "+f.side+" at "+usd0(f.price):""));Gs.nodes.acct.flash=1}
   if(d("reactions"))Gs.nodes.risk.flash=1;
   if(d("forecasts")||P.made!==fc.made){if(Gs.nodes.model)Gs.nodes.model.burst=1;ipush("forecasts",3,C.cy)}
   if(LAB&&P.gen!==LAB.gen){if(Gs.nodes.lab)Gs.nodes.lab.burst=1;ipush("lab",4,"#9fb0c3")}}
@@ -986,10 +1036,88 @@ function drawInner(g,w,h,t,dt,a,hv,ck){const id=Gs.focus||Gs.last,d=inner(id);if
   g.restore()}
 
 
+/* ================= what the lab has learned, in three dimensions =================
+   Floor: two settings (how far below the price the first bid rests, and how far above the fill it sells).
+   Height of a column: the average result, on history the lab never trained on, of every variant tried there. The glass sheet is breakeven.
+   Width of a column: how many were tried there. Balls: the variants alive this round. Nothing moves unless a round arrives or you turn it. */
+const LD={h:null,gen:null,t0:0,yaw:-.42,pit:.42,fresh:false};{const c=LS.get("cam",{});if(isFinite(c.yaw)&&isFinite(c.pit)){LD.yaw=c.yaw;LD.pit=clamp(c.pit,.2,1.25)}}
+let landSkip=false;
+const landU=(v,r)=>clamp((Math.log(clamp(v,r[0],r[1]))-Math.log(r[0]))/(Math.log(r[1])-Math.log(r[0])),0,1),landV=(u,r)=>r[0]*Math.exp(u*Math.log(r[1]/r[0]));
+const landCell=(Ld,first,tp)=>clamp(Math.floor(landU(tp,Ld.y)*Ld.ny),0,Ld.ny-1)*Ld.nx+clamp(Math.floor(landU(first,Ld.x)*Ld.nx),0,Ld.nx-1);
+const inPoly=(x,y,p)=>{let c=false;for(let i=0,j=p.length-1;i<p.length;j=i++){const a=p[i],b=p[j];if((a[1]>y)!==(b[1]>y)&&x<(b[0]-a[0])*(y-a[1])/(b[1]-a[1])+a[0])c=!c}return c};
+const tint=(hex,m,a)=>{const n=parseInt(hex.slice(1),16),f=v=>Math.round(clamp(v*m+(255-v)*(a||0),0,255));return `rgb(${f(n>>16)},${f(n>>8&255)},${f(n&255)})`};
+const pc2=v=>(v*100).toFixed(v<.0095?2:1)+"%";
+function landBest(Ld,min){let b=-1;for(let c=0;c<Ld.n.length;c++)if(Ld.n[c]>=min&&(b<0||Ld.te[c]>Ld.te[b]))b=c;return b}
+function landRange(Ld,c){const i=c%Ld.nx,j=(c-i)/Ld.nx;return [landV(i/Ld.nx,Ld.x),landV((i+1)/Ld.nx,Ld.x),landV(j/Ld.ny,Ld.y),landV((j+1)/Ld.ny,Ld.y)]}
+function drawLand(t,dt){const c0=cv("cLand");if(!c0)return;const [g,w,h]=c0,Ld=LAB&&LAB.land;if(!Ld||!Ld.tested)return emptyMsg(g,w,h,LAB&&LAB.state==="idle"?"The lab needs real prices":"The map fills in once the lab has run a round");
+  const nx=Ld.nx,ny=Ld.ny,NC=nx*ny,hv=hov("cLand"),ck=take("cLand");
+  if(!LD.h||LD.h.length!==NC){LD.h=Array(NC).fill(0);LD.f=Array(NC).fill(0);LD.fl=Array(NC).fill(0);LD.pn=null}
+  if(LD.gen!==LAB.gen){if(LD.pn)for(let c=0;c<NC;c++)if(Ld.n[c]>LD.pn[c])LD.fl[c]=1;LD.fresh=!!LD.pn;LD.pn=Ld.n.slice();LD.gen=LAB.gen;LD.t0=t}      // a round arrived: light the regions that were just tested
+  let lo=-.05,hi=.05;const see=v=>{if(v!=null){lo=Math.min(lo,v);hi=Math.max(hi,v)}};Ld.te.forEach(see);Ld.pop.forEach(p=>see(p[3]));see(Ld.live[2]);
+  /* the floor is the worst result seen, the glass sheet is breakeven: taller is better, and only what pokes through the sheet made money */
+  const A=v=>Math.asinh(v/.12),Al=A(lo),Ah=A(hi),nar=w<560,HS=nar?.45:.36,WX=nar?1.3:2.1,WZ=1,HY=v=>(A(clamp(v,lo,hi))-Al)/(Ah-Al)*HS,Y0=HY(0);
+  const cyw=Math.cos(LD.yaw),syw=Math.sin(LD.yaw),cp=Math.cos(LD.pit),sp=Math.sin(LD.pit),DD=2.8,raw=(X,Y,Z)=>{const x1=X*cyw-Z*syw,z1=X*syw+Z*cyw,y2=Y*cp+z1*sp,z2=-Y*sp+z1*cp,k=DD/(DD+z2);return [x1*k,-y2*k,z2]};
+  let bx0=1e9,bx1=-1e9,by0=1e9,by1=-1e9;[-WX/2,WX/2].forEach(X=>[-WZ/2,WZ/2].forEach(Z=>[0,HS+.2].forEach(Y=>{const q=raw(X,Y,Z);bx0=Math.min(bx0,q[0]);bx1=Math.max(bx1,q[0]);by0=Math.min(by0,q[1]);by1=Math.max(by1,q[1])})));
+  const SC=Math.min((w-(nar?84:220))/(bx1-bx0),(h-74)/(by1-by0)),CX=w/2-(bx0+bx1)/2*SC,CY=22+(h-74)/2-(by0+by1)/2*SC,P=(X,Y,Z)=>{const q=raw(X,Y,Z);return [CX+q[0]*SC,CY+q[1]*SC,q[2]]};      // always fits, however it is turned
+  const poly=(pts,fill,stroke)=>{g.beginPath();pts.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.closePath();if(fill){g.fillStyle=fill;g.fill()}if(stroke){g.strokeStyle=stroke;g.lineWidth=1;g.stroke()}};
+  const fitT=(tx,x,y,col,an)=>{g.font="10px "+MONO;const tw=g.measureText(tx).width+8;tag(g,tx,clamp(an==="right"?x-tw:an==="center"?x-tw/2:x,2,Math.max(2,w-tw-2)),y,col,"left")};
+  const ez=RM?1:Math.min(1,dt*5),cw=WX/nx,cz=WZ/ny,pick=[],best=LAB.best,fvv=typeof FOCUSV==="number"?FOCUSV:null,LX=-.55,LZ=-.62,sq=(X0,Z0,a,b,Y)=>[P(X0-a,Y,Z0-b),P(X0+a,Y,Z0-b),P(X0+a,Y,Z0+b),P(X0-a,Y,Z0+b)];
+  const cells=[];for(let c=0;c<NC;c++){const n=Ld.n[c],v=Ld.te[c]||0,i=c%nx,j=(c-i)/nx,X0=(i+.5)*cw-WX/2,Z0=(j+.5)*cz-WZ/2;
+    LD.h[c]+=((n?Math.max(.006,HY(v)):0)-LD.h[c])*ez;LD.f[c]+=((n?.3+.62*Math.min(1,Math.sqrt(n/10)):0)-LD.f[c])*ez;LD.fl[c]=Math.max(0,LD.fl[c]-dt/1.8);      // heights ease to what was really measured
+    cells.push({c,i,j,X0,Z0,n,v,hy:LD.h[c],a:LD.f[c]*cw/2,b:LD.f[c]*cz/2,z:P(X0,0,Z0)[2]})}
+  const column=(q,up)=>{const {X0,Z0,a,b,hy}=q;if(a<.002)return;const win=q.v>.004,flat=Math.abs(q.v)<=.004,col=flat?"#8fa3b8":win?C.up:C.down,y0=up?Y0:0,y1=up?hy:Math.min(hy,Y0),m=win?(up?1:.55):flat?.8:.5+.5*(1-clamp(hy/Y0,0,1));
+    if(y1-y0>.001)[[1,0],[-1,0],[0,1],[0,-1]].forEach(([ux,uz])=>{if(ux*syw+uz*cyw>=0)return;const xs=ux?[X0+ux*a,X0+ux*a]:[X0-a,X0+a],zs=uz?[Z0+uz*b,Z0+uz*b]:[Z0-b,Z0+b];
+      const pts=[P(xs[0],y0,zs[0]),P(xs[1],y0,zs[1]),P(xs[1],y1,zs[1]),P(xs[0],y1,zs[0])];poly(pts,tint(col,m*(.42+.5*Math.max(0,ux*LX+uz*LZ))));pick.push({pts,q})});
+    if(up===(hy>Y0)){const pts=sq(X0,Z0,a,b,hy);poly(pts,tint(col,m,.16));if(LD.fl[q.c]>0)poly(pts,`rgba(255,255,255,${(LD.fl[q.c]*.8).toFixed(2)})`);pick.push({pts,q})}};
+  const vs=Ld.pop.map((p,k)=>{const X0=(landU(p[1],Ld.x)-.5)*WX,Z0=(landU(p[2],Ld.y)-.5)*WZ,ty=HY(p[3]);let y=ty,land=1;
+    if(LD.fresh&&p[5]===0&&!RM){const d=clamp((t-LD.t0-k*.015)/.8,0,1);y=ty+(1-d*d)*.45;land=d>=1?(t-LD.t0-k*.015-.8)/.6:-1}      // tried for the first time this round: it drops onto the map
+    const s2=P(X0,y,Z0);return {p,X0,Z0,y,ty,s:s2,z:s2[2],land}});
+  const ball=v=>{const p=v.p,isB=p[0]===best,col=isB?"#e9eff6":Math.abs(p[3])<=.004?"#8fa3b8":p[3]>0?C.up:C.down,f0=P(v.X0,0,v.Z0),r=(isB?5.5:3.4)*DD/(DD+v.z)*clamp(SC/420,.8,1.4);
+    g.strokeStyle=isB?"rgba(233,239,246,.8)":"rgba(159,176,195,.3)";g.lineWidth=1;g.beginPath();g.moveTo(f0[0],f0[1]);g.lineTo(v.s[0],v.s[1]);g.stroke();
+    if(v.land>=0&&v.land<1){g.beginPath();g.ellipse(v.s[0],v.s[1],r+v.land*14,(r+v.land*14)*sp,0,0,7);g.strokeStyle=col;g.globalAlpha=.8*(1-v.land);g.stroke();g.globalAlpha=1}
+    sphere(g,v.s[0],v.s[1],r,col,isB?10:0);if(p[0]===fvv){g.beginPath();g.arc(v.s[0],v.s[1],r+4,0,7);g.strokeStyle=C.warn;g.lineWidth=1.4;g.stroke();g.lineWidth=1}v.r=r;pick.push({v})};
+  const pass=list=>list.sort((a,b)=>b.z-a.z).forEach(o=>o.f());
+  poly(sq(0,0,WX/2,WZ/2,0),"rgba(9,14,21,.6)","rgba(111,127,147,.5)");g.strokeStyle="rgba(111,127,147,.2)";g.lineWidth=1;
+  for(let i=1;i<nx;i++){const a=P(i*cw-WX/2,0,-WZ/2),b=P(i*cw-WX/2,0,WZ/2);g.beginPath();g.moveTo(a[0],a[1]);g.lineTo(b[0],b[1]);g.stroke()}
+  for(let j=1;j<ny;j++){const a=P(-WX/2,0,j*cz-WZ/2),b=P(WX/2,0,j*cz-WZ/2);g.beginPath();g.moveTo(a[0],a[1]);g.lineTo(b[0],b[1]);g.stroke()}
+  pass([...cells.filter(q=>q.n).map(q=>({z:q.z,f:()=>column(q,false)})),...vs.filter(v=>v.y<Y0).map(v=>({z:v.z-.001,f:()=>ball(v)}))]);        // everything under breakeven first
+  const sheet=sq(0,0,WX/2,WZ/2,Y0);poly(sheet,"rgba(6,9,14,.3)");poly(sheet,"rgba(53,200,255,.09)","rgba(53,200,255,.6)");                              // the breakeven sheet
+  pass([...cells.filter(q=>q.hy>Y0).map(q=>({z:q.z,f:()=>column(q,true)})),...vs.filter(v=>v.y>=Y0).map(v=>({z:v.z-.001,f:()=>ball(v)}))]);     // then whatever pokes through it
+  /* your live settings, and the best variant right now */
+  const bv=vs.find(v=>v.p[0]===best),lX=(landU(Ld.live[0],Ld.x)-.5)*WX,lZ=(landU(Ld.live[1],Ld.y)-.5)*WZ,la=P(lX,0,lZ),lb=P(lX,HY(Ld.live[2]),lZ),lt=P(lX,HY(Ld.live[2])+.1,lZ),bt=bv?P(bv.X0,bv.y+.17,bv.Z0):null,lside=bt&&lt[0]>bt[0]?"left":"right";
+  g.strokeStyle=C.warn;g.setLineDash([4,3]);g.beginPath();g.moveTo(la[0],la[1]);g.lineTo(lt[0],lt[1]);g.stroke();g.setLineDash([]);g.beginPath();g.moveTo(lb[0],lb[1]-5);g.lineTo(lb[0]+5,lb[1]);g.lineTo(lb[0],lb[1]+5);g.lineTo(lb[0]-5,lb[1]);g.closePath();g.fillStyle=C.warn;g.fill();
+  fitT("your live settings "+ud(Ld.live[2]),lt[0],lt[1]-3,C.warn,lside);
+  if(bv){g.strokeStyle="rgba(233,239,246,.75)";g.beginPath();g.moveTo(bv.s[0],bv.s[1]);g.lineTo(bt[0],bt[1]);g.stroke();ringEv(g,bv.s[0],bv.s[1],"champ",3,7,38,C.cy);const nb=since("champ")<10;fitT((nb?"new best #":"best now #")+best+" "+ud(bv.p[3]),bt[0],bt[1]-3,nb?C.cy:C.ink,lside==="left"?"right":"left")}
+  /* the two floor scales, on whichever edges face you, and the height scale on the far corner */
+  const zn=(cyw>0?-.5:.5)*WZ,xn=(syw>0?-.5:.5)*WX,sg=Math.sign,tk=(a,b)=>{g.strokeStyle="rgba(159,176,195,.7)";g.beginPath();g.moveTo(a[0],a[1]);g.lineTo(b[0],b[1]);g.stroke()};
+  const out=(a,b,d)=>{const dx=b[0]-a[0],dy=b[1]-a[1],l=Math.hypot(dx,dy)||1;return [a[0]+dx/l*d,a[1]+dy/l*d,dx/l]},al=u=>u>.45?"left":u<-.45?"right":"center",fitL=(tx,x,y,col,an)=>{g.font="10px "+MONO;const tw=g.measureText(tx).width;label(g,tx,clamp(an==="right"?x-tw:an==="center"?x-tw/2:x,4,Math.max(4,w-tw-4)),y,col,"left")};      // labels sit a fixed distance outside the floor, on screen
+  [0,.5,1].forEach(u=>{const X=(u-.5)*WX,Z=(u-.5)*WZ;let a=P(X,0,zn),o=out(a,P(X,0,zn+sg(zn)*.1),15);tk(a,out(a,o,6));label(g,pc2(landV(u,Ld.x)),o[0],o[1]+4,"#b9c6d6",al(o[2]));
+    a=P(xn,0,Z);o=out(a,P(xn+sg(xn)*.1,0,Z),15);tk(a,out(a,o,6));label(g,pc2(landV(u,Ld.y)),o[0],o[1]+4,"#b9c6d6",al(o[2]))});
+  {let a=P(-.22*WX*sg(xn),0,zn),o=out(a,P(-.22*WX*sg(xn),0,zn+sg(zn)*.1),0);o=out(a,P(-.22*WX*sg(xn),0,zn+sg(zn)*.1),30+34*Math.abs(o[2]));fitL("first bid: this far below the price",o[0],Math.min(h-3,o[1]+4),C.cy,al(o[2]));
+    a=P(xn,0,-.22*WZ*sg(zn));o=out(a,P(xn+sg(xn)*.1,0,-.22*WZ*sg(zn)),0);o=out(a,P(xn+sg(xn)*.1,0,-.22*WZ*sg(zn)),30+34*Math.abs(o[2]));fitL("sells: this far above the fill",o[0],Math.min(h-3,o[1]+4),C.cy,al(o[2]))}
+  {const cs=[[-1,-1],[1,-1],[1,1],[-1,1]].map(([a,b])=>[a*WX/2,b*WZ/2]),lf=cs.reduce((a,b)=>P(b[0],0,b[1])[0]<P(a[0],0,a[1])[0]?b:a),p0=P(lf[0],0,lf[1]),p1=P(lf[0],HS,lf[1]);tk(p0,p1);       // the height scale stands on the left-most corner
+    if(!nar){fitL("best seen "+ud(hi)+" a slice",p1[0]-6,p1[1]-2,C.up,"right");fitL("worst seen "+ud(lo),p0[0]-6,p0[1]-9,C.down,"right")}const sc=sheet.reduce((a,b)=>b[0]>a[0]?b:a);fitT("$0 · breakeven",sc[0]+6,sc[1]+4,C.cy,"left")}
+  label(g,nar?"taller = better · through the blue sheet = made money":"taller = better on history the lab never trained on · through the blue sheet = made money · grey = no trades or breakeven · wider = more tries",6,12,C.dim);
+  /* hover and click: the front-most thing under the cursor */
+  let hit=null;if(hv){for(let i=pick.length-1;i>=0&&!hit;i--){const o=pick[i];if(o.v?Math.hypot(hv.x-o.v.s[0],hv.y-o.v.s[1])<o.v.r+4:inPoly(hv.x,hv.y,o.pts))hit=o}
+    if(!hit){const q=cells.find(q=>inPoly(hv.x,hv.y,sq(q.X0,q.Z0,cw/2,cz/2,0)));if(q)hit={q}}}
+  const here=c=>Ld.pop.filter(p=>landCell(Ld,p[1],p[2])===c).sort((a,b)=>b[3]-a[3]);
+  if(hit&&hit.v){const p=hit.v.p;g.beginPath();g.arc(hit.v.s[0],hit.v.s[1],hit.v.r+3,0,7);g.strokeStyle=C.cy;g.lineWidth=1.5;g.stroke();g.lineWidth=1;
+    tipHTML=`<b>Variant #${p[0]}${p[0]===best?" (best now)":""}</b>`+trow("first bid rests",pc2(p[1])+" below the price")+trow("sells",pc2(p[2])+" above each fill")+trow("avg per slice, trained on",`<span class="${sign(p[4])}">${ud(p[4])}</span>`)+trow("avg per slice, unseen history (its height)",`<span class="${sign(p[3])}">${ud(p[3])}</span>`)+trow(p[5]?"kept and re-tested":"new this round",p[5]?p[5]+" rounds":"just dropped in")+`<i>Click to see every trade path it took. Test only: it never trades.</i>`}
+  else if(hit){const q=hit.q,r=landRange(Ld,q.c),hs=here(q.c),lv=landCell(Ld,Ld.live[0],Ld.live[1])===q.c;poly(sq(q.X0,q.Z0,cw/2,cz/2,0),null,C.cy);if(q.n)poly(sq(q.X0,q.Z0,q.a,q.b,q.hy),null,C.cy);
+    tipHTML=`<b>First bid ${pc2(r[0])} to ${pc2(r[1])} below the price, selling ${pc2(r[2])} to ${pc2(r[3])} above the fill</b>`+trow("variants tried here so far",q.n?q.n:"none yet")+(q.n?trow("their average per slice, trained on",`<span class="${sign(Ld.tr[q.c])}">${ud(Ld.tr[q.c])}</span>`)+trow("same, on unseen history (the height)",`<span class="${sign(q.v)}">${ud(q.v)}</span>`):"")+trow("alive here this round",hs.length?hs.length+", best #"+hs[0][0]+" at "+ud(hs[0][3]):"none")+(lv?trow("your live settings","sit in this region"):"")+
+      `<i>${q.n?(q.n<3?"Only "+q.n+" tr"+(q.n>1?"ies":"y")+" here, so this could easily be luck. ":"")+"The taller the column, the better the variants tried here did on history the lab never trained on. Green and through the blue sheet: they made money. Red and under it: they lost. Grey and level with it: the bids were too far away to fill, so nothing was won or lost. A wide column has been tried many times.":"Nothing has been tried here yet, so the map is empty."}${hs.length?" Click to follow the best variant here.":""}</i>`}
+  $("cLand").style.cursor=hit&&(hit.v||here(hit.q.c).length)?"pointer":"grab";
+  if(ck&&!landSkip&&hit){const id=hit.v?hit.v.p[0]:(here(hit.q.c)[0]||[])[0];if(id!=null)setFocusV(id===best?null:id)}}
+(()=>{const c=$("cLand");let dr=null;c.style.touchAction="pan-y";
+  c.addEventListener("pointerdown",e=>{dr={x:e.clientX,y:e.clientY,yaw:LD.yaw,pit:LD.pit,moved:false};c.setPointerCapture(e.pointerId)});
+  c.addEventListener("pointermove",e=>{if(!dr)return;const dx=e.clientX-dr.x,dy=e.clientY-dr.y;if(!dr.moved&&Math.hypot(dx,dy)<4)return;dr.moved=true;LD.yaw=dr.yaw+dx*.008;LD.pit=clamp(dr.pit+dy*.006,.2,1.25);HV=null;showTip("");kick()});
+  const end=()=>{if(dr&&dr.moved){LS.set("cam",{yaw:LD.yaw,pit:LD.pit});landSkip=true;setTimeout(()=>landSkip=false,50)}dr=null};c.addEventListener("pointerup",end);c.addEventListener("pointercancel",end)})();
+
 /* ================= loop ================= */
 let lastT=0;
 function frame(ms){const t=ms/1000,dt=Math.min(.1,Math.max(0,t-lastT));lastT=t;RAFQ=false;CUR=NEXT;NEXT={sel:MH?MH.sel:null,hour:MH?MH.hour:null};tipHTML="";
-  if(S.ready&&!document.hidden){try{tweens(ms);drawBg(t,dt);LQ=quiet("acct");drawCurve(t);LQ=quiet("reg");drawReg(t);LQ=quiet("lat");drawLat(t);LQ=quiet("ridge");drawRidge(t);LQ=quiet("price");drawPrice(t);LQ=quiet("graph");drawGraph(t,dt);LQ=quiet("lab");drawLab(t,dt);LQ=quiet("paths");drawPaths(t);LQ=false;markHour()}catch(e){console.error(e)}}
+  if(S.ready&&!document.hidden){try{tweens(ms);drawBg(t,dt);LQ=quiet("acct");drawCurve(t);LQ=quiet("reg");drawReg(t);LQ=quiet("lat");drawLat(t);LQ=quiet("ridge");drawRidge(t);LQ=quiet("price");drawPrice(t);LQ=quiet("graph");drawGraph(t,dt);LQ=quiet("lab");drawLab(t,dt);LQ=quiet("paths");drawPaths(t);LQ=false;drawLand(t,dt);markHour()}catch(e){console.error(e)}}
   CK=null;if(HV&&!BUSY)showTip(ZOOM?"":tipHTML);
   if(!RM)requestAnimationFrame(frame)}
 async function tick(){try{S=await (await fetch("/api/state")).json();
