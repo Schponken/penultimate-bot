@@ -21,7 +21,7 @@ from .store import Store
 from .strategies import REGISTRY
 
 FUNDING_PERIOD = 8 * 3600
-VERSION = "1.8"
+VERSION = "1.9"
 
 
 class Engine:
@@ -41,7 +41,7 @@ class Engine:
         self.risk = RiskEngine(limits)
         self.flow = {"evals": 0, "placed": 0, "refused": 0, "fills": 0, "reactions": 0, "score_checks": 0}   # real event counts, drawn on the dashboard
         saved_risk = self.store.get(f"risk:{self.mode}", {}) or {}
-        self.risk.load_state(saved_risk if saved_risk.get("v") == 2 else {})    # states saved before v1.8 could hold a loss baseline from the wrong account
+        self.risk.load_state(saved_risk if saved_risk.get("v") == 3 else {})    # states saved before v1.9 could hold a loss baseline from the wrong account
         self.regime = Regime(**cfg.get("regime", {}))
         self.problems: List[str] = []       # anything that blocks trading, shown on the dashboard
         self.blocked = False
@@ -222,7 +222,7 @@ class Engine:
         for s in self.strategies:
             s.reset()
         self._handle_fills(fills)
-        self.store.set(f"risk:{self.mode}", {**self.risk.to_state(), "v": 2})
+        self.store.set(f"risk:{self.mode}", {**self.risk.to_state(), "v": 3})
         self.event("reaction", f"{reason} -> cancelled all orders, closed {len(fills)} position(s), halted")
         self.save_state()
 
@@ -292,7 +292,7 @@ class Engine:
                 self.risk.resume()
                 if self.marks:
                     self.risk.day_start_equity = self.broker.equity(self.marks)
-                self.store.set(f"risk:{self.mode}", {**self.risk.to_state(), "v": 2})
+                self.store.set(f"risk:{self.mode}", {**self.risk.to_state(), "v": 3})
                 self.event("control", "resumed by you; today's loss budget starts fresh", now)
             elif cmd == "risk_off":
                 self._set_risk_off(bool(arg), "set from dashboard", now)
@@ -302,7 +302,7 @@ class Engine:
                     self.store.set(f"strategy:{s.name}:{self.mode}:{self.cfg['feed']}", {})
                 self.risk.resume()
                 self.risk.day_key = ""
-                self.store.set(f"risk:{self.mode}", {**self.risk.to_state(), "v": 2})
+                self.store.set(f"risk:{self.mode}", {**self.risk.to_state(), "v": 3})
                 self._skip_save = True
                 self.stop()
             elif cmd == "restart":
@@ -390,7 +390,7 @@ class Engine:
         self.event("stop", "engine stopped")
 
     def save_state(self) -> None:
-        self.store.set(f"risk:{self.mode}", {**self.risk.to_state(), "v": 2})
+        self.store.set(f"risk:{self.mode}", {**self.risk.to_state(), "v": 3})
         for s in self.strategies:
             self.store.set(f"strategy:{s.name}:{self.mode}:{self.cfg['feed']}", s.state())
         if self.broker.name == "live" and not self.blocked:

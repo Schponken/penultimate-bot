@@ -222,14 +222,21 @@ class LiveBroker:
                     o.status = "filled" if any(f.order_id == o.id for f in fills) else o.status
                     self.open_orders.remove(o)
             bal = self.ex.fetch_balance()
-            self.cash = float((bal.get("total") or {}).get(self.quote) or 0.0)
+            # Money and coin reserved for the bot's own resting orders are still the bot's. Some exchanges (Coinbase) leave
+            # them out of "total", which would look like a sudden loss the moment an order is placed.
+            def owned(asset: str) -> float:
+                tot, free, used = (float((bal.get(k) or {}).get(asset) or 0.0) for k in ("total", "free", "used"))
+                held = sum(o.qty * (o.price or 0.0) for o in self.open_orders if o.side == "buy" and not is_perp(o.symbol)) if asset == self.quote \
+                    else sum(o.qty for o in self.open_orders if o.side == "sell" and o.symbol.split("/")[0] == asset and not is_perp(o.symbol))
+                return max(tot, free + used, free + held)
+            self.cash = owned(self.quote)
             self.free_cash = float((bal.get("free") or {}).get(self.quote) or 0.0)
             # The whole account is the bot's: the coin balance the exchange reports IS the position, however it got there.
             # The balance is the single truth for how much is held, so a trade that shows up late can never be counted twice.
             for sym in self.own_symbols:
                 if is_perp(sym):
                     continue
-                have, p = float((bal.get("total") or {}).get(sym.split("/")[0]) or 0.0), self.position(sym)
+                have, p = owned(sym.split("/")[0]), self.position(sym)
                 mark = self.marks.get(sym)
                 if not mark:                                    # no price yet (start-up): still never hold a number the exchange does not show
                     p.qty = min(p.qty, have) if have > 0 else 0.0

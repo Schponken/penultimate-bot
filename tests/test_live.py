@@ -242,7 +242,7 @@ def test_the_whole_account_is_the_bots_when_told_so():
     b.submit(o, tick)
     bal["BTC"] = 0.0                                                   # the balance drops before the trade is listed...
     b.sync()
-    assert b.position(SPOT).qty == 0.0
+    assert b.position(SPOT).qty in (0.0, 0.0005)                       # in between, the coin in its own open sell still counts as held
     ex.fill(o.venue_id, 75000.0)                                       # ...and the trade shows up late
     fills = b.sync()
     assert len(fills) == 1 and b.position(SPOT).qty == 0.0 and b.adopted == []     # never counted twice, never a phantom position
@@ -268,3 +268,33 @@ def test_practice_money_and_real_money_keep_separate_loss_budgets(tmp_path):
     eng.risk.halt("daily loss cap of $50 hit")
     eng.store.set(f"risk:{eng.mode}", eng.risk.to_state())
     assert store.get("risk:paper")["halted"] and not store.get("risk:live", {})     # a practice halt, and a $500 practice baseline, never reach real money
+
+
+def test_money_reserved_for_a_resting_order_is_not_a_loss():
+    """Coinbase leaves cash held for an open buy, and coin held for an open sell, out of the total it reports."""
+    ex = FakeExchange()
+    state = {"usd": 148.15, "btc": 0.0}
+    ex.fetch_balance = lambda: {"total": dict(state_total()), "free": dict(state_total())}
+
+    def state_total():
+        hold_usd = sum(o["amount"] * o["price"] for o in ex.orders.values() if o["side"] == "buy")
+        hold_btc = sum(o["amount"] for o in ex.orders.values() if o["side"] == "sell")
+        return {"USD": state["usd"] - hold_usd, "BTC": state["btc"] - hold_btc}
+    b = LiveBroker(ex)
+    b.own_symbols, b.marks = [SPOT], {SPOT: 75000.0}
+    tick = Tick(1.0, SPOT, 74990, 75010, 75000)
+    b.sync()
+    assert round(b.equity(b.marks), 2) == 148.15
+    bid = Order(SPOT, "buy", 95 / 72750, "limit", 72750.0, "deep_bids", "ladder-0")
+    b.submit(bid, tick)
+    b.sync()
+    assert abs(b.equity(b.marks) - 148.15) < 0.05 and abs(b.free_cash - 53.15) < 0.05      # the $95 on hold still counts as the bot's
+    state["usd"], state["btc"] = 148.15 - 95, 95 / 72750                                   # the bid fills
+    ex.fill(bid.venue_id, 72750.0)
+    ex.usd = 0                                                                             # (the stand-in's own tally is not used here)
+    b.sync()
+    tp = Order(SPOT, "sell", 95 / 72750, "limit", 74205.0, "deep_bids", "tp")
+    b.submit(tp, tick)
+    b.sync()
+    assert abs(b.position(SPOT).qty - 95 / 72750) < 1e-6                                   # coin resting in the sell order is still held
+    assert abs(b.equity(b.marks) - (53.15 + 95 / 72750 * 75000)) < 0.05
