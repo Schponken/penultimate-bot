@@ -219,3 +219,29 @@ def test_fill_is_not_lost_when_an_order_leaves_the_book_before_its_trade_shows()
                       "price": 99.0, "fee": {"cost": 0.25}})
     fills = b.sync()
     assert len(fills) == 1 and b.position(SPOT).qty == pytest.approx(0.5)
+
+
+def test_the_whole_account_is_the_bots_when_told_so():
+    ex = FakeExchange()
+    bal = {"BTC": 0.002}
+    ex.fetch_balance = lambda: {"total": {"USD": 100.0, **bal}, "free": {"USD": 100.0}}
+    b = LiveBroker(ex)
+    b.sync()
+    assert b.position(SPOT).qty == 0                                   # off by default: only its own trades count
+    b.own_symbols, b.marks = [SPOT], {SPOT: 75000.0}
+    b.sync()
+    p = b.position(SPOT)
+    assert p.qty == 0.002 and p.avg == 75000.0 and round(b.adopted_usd, 2) == 150.0 and len(b.adopted) == 1
+    assert round(b.equity(b.marks), 2) == 250.0 and round(b.gross_exposure(b.marks), 2) == 150.0
+    b.adopted, b.adopted_usd = [], 0.0
+    b.sync()
+    assert b.adopted == []                                             # in step: nothing more to take on
+    bal["BTC"] = 0.0005                                                # you sold some yourself in the Coinbase app
+    b.sync()
+    assert b.position(SPOT).qty == 0.0005 and round(b.adopted_usd, 2) == -112.5
+    bal["BTC"] = 0.00050001                                            # dust is ignored
+    b.sync()
+    assert b.position(SPOT).qty == 0.0005
+    tick = Tick(1.0, SPOT, 74990, 75010, 75000)
+    b.flatten({SPOT: tick})                                            # Stop everything sells all of it
+    assert any(o["side"] == "sell" and abs(o["amount"] - 0.0005) < 1e-9 for o in ex.orders.values())

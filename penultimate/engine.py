@@ -21,7 +21,7 @@ from .store import Store
 from .strategies import REGISTRY
 
 FUNDING_PERIOD = 8 * 3600
-VERSION = "1.5"
+VERSION = "1.6"
 
 
 class Engine:
@@ -128,6 +128,9 @@ class Engine:
             self.blocked = True
             return PaperBroker(0.0, 0.0, 0.0, 0.0)
         b = LiveBroker(make_exchange(self.cfg["venue"], keys), max_transfer_usd=self.limits.max_transfer_usd)
+        b.marks = self.marks
+        if (self.cfg.get("live") or {}).get("own_whole_account", True):
+            b.own_symbols = [self.spot]             # every dollar and every coin of this market in the account is the bot's
         probs = b.self_check([self.spot])
         if probs:
             self.problems += probs
@@ -335,6 +338,11 @@ class Engine:
             if live_broker and not self.blocked and now - self._last_sync > 2:
                 self._last_sync = now
                 self._handle_fills(self.broker.sync())
+                if getattr(self.broker, "adopted", None):       # coins that were already in the account now count as the bot's
+                    self.risk.day_start_equity += self.broker.adopted_usd      # not today's profit or loss
+                    for line in self.broker.adopted:
+                        self.event("setup", "whole account is the bot's: " + line, now)
+                    self.broker.adopted, self.broker.adopted_usd = [], 0.0
             if self.spot in self.marks:
                 equity = self.broker.equity(self.marks)
                 if not self.blocked and self.risk.on_equity(equity, now):

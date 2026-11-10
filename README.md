@@ -46,7 +46,7 @@ The bot's whole budget is `max_gross_exposure_usd` in `limits.yaml` ($500). It n
 | `penultimate/lab.py` | Strategy lab, test only. Every few seconds it tests 48 variants of the resting-bid strategy on real past prices, keeps the best 10, mutates them and tests again. It never trades and never changes the live settings. The dashboard shows the family tree, every variant's running result, each individual trade path, an "Is it learning?" panel (how the lab's picks do on unseen history round by round, with the milestones that would count as progress), and a 3D map of everything tried so far (floor: two settings; height: the result on unseen history). What it has learned is kept in `data/lab.json`, so a restart does not lose it. The number that matters is the result on history the lab never trained on. |
 | `penultimate/updater.py` | On a server: checks the repository for new versions. On fake money they install by themselves; with real money they wait for your click. Never touches `config.yaml`, `limits.yaml` or `data/`. |
 | `deploy/server-setup.sh`, `deploy/install-server.sh` | What the server runs on first boot: install, start on boot, private access, firewall. |
-| `tests/` | 60 automatic checks: the money-protecting parts, plus one that runs every part together and checks each hands the next what it expects. |
+| `tests/` | 61 automatic checks: the money-protecting parts, plus one that runs every part together and checks each hands the next what it expects. |
 
 ## Honest status
 

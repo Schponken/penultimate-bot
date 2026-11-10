@@ -44,6 +44,10 @@ strategies:
     exit_rate: 0.00003
     max_breakeven_periods: 9     # skip if fees take longer than this (3 days) to earn back
 
+live:
+  own_whole_account: true      # with real money, all cash AND all coin of the traded market in the exchange account belong to the bot,
+                               # including coin you already held or add later. It counts toward the limits and "Stop everything" sells it.
+
 forecast:
   enabled: true                # Kronos price-path model. Shadow mode: watched and scored, never trades.
   model: NeoQuasar/Kronos-small
